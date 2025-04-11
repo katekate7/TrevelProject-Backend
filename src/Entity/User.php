@@ -83,9 +83,15 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    public function getRole(): string
+    public function getRoles(): array
     {
-        return $this->role;
+        $roles = ['ROLE_USER']; // Базова роль кожного користувача
+    
+        if ($this->role === 'admin') {
+            $roles[] = 'ROLE_ADMIN';
+        }
+    
+        return array_unique($roles);
     }
 
     public function setRole(string $role): static
@@ -145,12 +151,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             }
         }
         return $this;
-    }
-
-    // Обов'язкові методи для UserInterface
-    public function getRoles(): array
-    {
-        return [$this->role];
     }
 
     public function getUserIdentifier(): string
