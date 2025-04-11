@@ -1,3 +1,8 @@
 _security_logout:
     resource: security.route_loader.logout
     type: service
+api_login:
+    path: /api/login
+access_control:
+    - { path: ^/api/admin, roles: ROLE_ADMIN }
+    - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
