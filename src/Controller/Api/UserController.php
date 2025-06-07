@@ -30,7 +30,8 @@ class UserController extends AbstractController
         ]);
     }
 
-    #[Route('/register', name: 'register_user', methods: ['POST'])]
+    #[Route('/register', name: 'register_user', methods: ['GET', 'POST'])]
+
     public function register(
         Request $request,
         EntityManagerInterface $em,
@@ -55,6 +56,7 @@ class UserController extends AbstractController
     
         return $this->json(['message' => 'User successfully registered! ✅']);
     }
+    
     
     #[Route('/create-admin', name: 'create_admin_user', methods: ['POST'])]
 public function createAdmin(

@@ -29,7 +29,7 @@ class CustomAuthenticationSuccessHandler implements AuthenticationSuccessHandler
             time() + 3600,
             '/',
             null,
-            false, // secure = false для localhost
+            false, 
             true,
             false,
             'Strict'

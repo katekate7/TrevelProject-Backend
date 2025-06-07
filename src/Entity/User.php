@@ -155,7 +155,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function getUserIdentifier(): string
     {
-        return $this->username;
+        return $this->email;
     }
 
     public function eraseCredentials(): void
