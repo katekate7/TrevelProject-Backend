@@ -7,7 +7,7 @@ security:
         app_user_provider:
             entity:
                 class: App\Entity\User
-                property: email   # або "username", якщо ти логінишся по username
+                property: email  # або username, якщо логін по ніку
 
     firewalls:
         login:
@@ -20,12 +20,14 @@ security:
                 success_handler: App\Security\CustomAuthenticationSuccessHandler
                 failure_handler: lexik_jwt_authentication.handler.authentication_failure
 
-
         api:
             pattern: ^/api
             stateless: true
             jwt: ~
+            entry_point: null
 
     access_control:
+        # ⚠️ Найперше правило — дозволити реєстрацію!
+        - { path: ^/api/users/register, roles: PUBLIC_ACCESS }
         - { path: ^/api/login, roles: PUBLIC_ACCESS }
         - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
