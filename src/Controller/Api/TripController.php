@@ -8,11 +8,12 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Serializer\SerializerInterface;
 
-#[Route('/api/trips')]
+
 class TripController extends AbstractController
 {
-    #[Route('/add', name: 'add_trip', methods: ['POST'])]
+    #[Route('/api/trips/add', name: 'add_trip', methods: ['POST'])]
     public function addTrip(Request $request, EntityManagerInterface $em): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
@@ -40,13 +41,18 @@ class TripController extends AbstractController
         ], 201);
     }
 
-    #[Route('/', name: 'get_trips', methods: ['GET'])]
-    public function getTrips(): JsonResponse
+    #[Route('/api/trips', name: 'get_trips', methods: ['GET'])]
+    public function getTrips(EntityManagerInterface $em, SerializerInterface $serializer): JsonResponse
     {
-        $trips = $this->getDoctrine()
-                      ->getRepository(Trip::class)
-                      ->findBy(['user' => $this->getUser()]);
+        $trips = $em->getRepository(Trip::class)->findBy(['user' => $this->getUser()]);
 
-        return $this->json($trips);
+        $json = $serializer->serialize($trips, 'json', [
+            'circular_reference_handler' => function ($object) {
+                return $object->getId(); // або null
+            },
+        ]);
+
+        return new JsonResponse($json, 200, [], true); // true означає, що це вже JSON
     }
+
 }
