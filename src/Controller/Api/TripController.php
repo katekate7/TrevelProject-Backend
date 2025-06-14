@@ -76,4 +76,23 @@ class TripController extends AbstractController
             'imageUrl' => $trip->getImageUrl(),
         ]);
     }
+    #[Route('/api/trips', name: 'get_all_trips', methods: ['GET'])]
+    public function getAllTrips(EntityManagerInterface $em): JsonResponse
+    {
+        $user = $this->getUser();
+        $trips = $em->getRepository(Trip::class)->findBy(['user' => $user]);
+
+        $data = array_map(function(Trip $trip) {
+            return [
+                'id' => $trip->getId(),
+                'country' => $trip->getCountry(),
+                'city' => $trip->getCity(),
+                'description' => $trip->getDescription(),
+                'imageUrl' => $trip->getImageUrl(),
+            ];
+        }, $trips);
+
+        return $this->json($data);
+    }
+
 }
