@@ -10,7 +10,6 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
-use Symfony\Component\Serializer\SerializerInterface;
 
 #[Route('/api/trips', name: 'api_trips_')]
 class TripController extends AbstractController
@@ -36,21 +35,24 @@ class TripController extends AbstractController
             ->setDescription($data['description'] ?? null)
             ->setImageUrl($data['imageUrl'] ?? null);
 
-        // Free WeatherAPI.com — current.json
-        $resp = $this->http->request('GET', 'http://api.weatherapi.com/v1/current.json', [
+        // скільки днів прогнозу нам треба (WeatherAPI максимум 10)
+        $days = min(10, $end->diff($start)->days + 1);
+
+        // запит Forecast на весь період поїздки
+        $resp = $this->http->request('GET', 'http://api.weatherapi.com/v1/forecast.json', [
             'query' => [
-                'key' => $this->weatherApiKey,
-                'q'   => "{$data['city']},{$data['country']}",
+                'key'  => $this->weatherApiKey,
+                'q'    => "{$data['city']},{$data['country']}",
+                'days' => $days,
             ],
         ]);
 
         if ($resp->getStatusCode() === 200) {
-            $current = $resp->toArray()['current'];
+            $forecastRaw = $resp->toArray()['forecast']['forecastday'];
+
             $weather = (new Weather())
                 ->setTrip($trip)
-                ->setTemperature($current['temp_c'])
-                ->setHumidity($current['humidity'])
-                ->setWeatherDescription($current['condition']['text'])
+                ->setForecast($forecastRaw)
                 ->setUpdatedAt(new \DateTimeImmutable());
 
             $trip->setWeather($weather);
@@ -64,16 +66,14 @@ class TripController extends AbstractController
     }
 
     #[Route('', name: 'list', methods: ['GET'])]
-    public function listTrips(EntityManagerInterface $em, SerializerInterface $serializer): JsonResponse
+    public function listTrips(EntityManagerInterface $em): JsonResponse
     {
         $trips = $em->getRepository(Trip::class)
                     ->findBy(['user' => $this->getUser()]);
 
-        $json = $serializer->serialize($trips, 'json', [
+        return $this->json($trips, 200, [], [
             'circular_reference_handler' => fn($obj)=>$obj->getId(),
         ]);
-
-        return new JsonResponse($json, 200, [], true);
     }
 
     #[Route('/{id}', name: 'get', methods: ['GET'])]
@@ -85,13 +85,13 @@ class TripController extends AbstractController
         }
 
         return $this->json([
-            'id'        => $trip->getId(),
-            'country'   => $trip->getCountry(),
-            'city'      => $trip->getCity(),
-            'startDate' => $trip->getStartDate()->format('Y-m-d'),
-            'endDate'   => $trip->getEndDate()->format('Y-m-d'),
-            'description'=> $trip->getDescription(),
-            'imageUrl'   => $trip->getImageUrl(),
+            'id'          => $trip->getId(),
+            'country'     => $trip->getCountry(),
+            'city'        => $trip->getCity(),
+            'startDate'   => $trip->getStartDate()->format('Y-m-d'),
+            'endDate'     => $trip->getEndDate()->format('Y-m-d'),
+            'description' => $trip->getDescription(),
+            'imageUrl'    => $trip->getImageUrl(),
         ]);
     }
 
@@ -102,15 +102,33 @@ class TripController extends AbstractController
         if (!$trip || $trip->getUser() !== $this->getUser()) {
             return $this->json(['error'=>'Поїздку не знайдено'], 404);
         }
+
         $w = $trip->getWeather();
-        if (!$w) {
+        if (!$w || empty($w->getForecast())) {
             return $this->json([]);
         }
-        return $this->json([
-            'temperature' => $w->getTemperature(),
-            'humidity'    => $w->getHumidity(),
-            'description' => $w->getWeatherDescription(),
-            'updatedAt'   => $w->getUpdatedAt()->format('Y-m-d H:i:s'),
-        ]);
+
+        $out = [];
+        foreach ($w->getForecast() as $day) {
+            // перетворюємо дату прогнозу в DateTime та фільтруємо за періодом поїздки
+            $d = new \DateTimeImmutable($day['date']);
+            if ($d < $trip->getStartDate() || $d > $trip->getEndDate()) {
+                continue;
+            }
+
+            $out[] = [
+                'dt'   => $day['date_epoch'],
+                'temp' => [
+                    'day'   => $day['day']['avgtemp_c'],
+                    'night' => $day['day']['mintemp_c'],
+                ],
+                'weather' => [[
+                    'description' => $day['day']['condition']['text'],
+                    'icon'        => pathinfo($day['day']['condition']['icon'], PATHINFO_FILENAME),
+                ]]
+            ];
+        }
+
+        return $this->json($out);
     }
 }

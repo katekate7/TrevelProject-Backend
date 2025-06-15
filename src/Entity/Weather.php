@@ -27,8 +27,9 @@ class Weather
     private ?string $weatherDescription = null;
 
     // remove or comment out if you no longer need the raw JSON
-    // #[ORM\Column(type: 'json')]
-    // private array $forecast = [];
+    #[ORM\Column(type: 'json', nullable: true)]
+    private array $forecast = [];
+
 
     #[ORM\Column(type: 'datetime_immutable', options: ['default' => 'CURRENT_TIMESTAMP'])]
     private \DateTimeImmutable $updatedAt;
@@ -87,17 +88,15 @@ class Weather
         return $this;
     }
 
-    // if you kept the JSON forecast:
-    // public function getForecast(): array
-    // {
-    //     return $this->forecast;
-    // }
-    //
-    // public function setForecast(array $forecast): static
-    // {
-    //     $this->forecast = $forecast;
-    //     return $this;
-    // }
+    public function getForecast(): array
+    {
+        return $this->forecast;
+    }
+    public function setForecast(array $forecast): static
+    {
+        $this->forecast = $forecast;
+        return $this;
+    }
 
     public function getUpdatedAt(): \DateTimeImmutable
     {
