@@ -131,4 +131,53 @@ class TripController extends AbstractController
 
         return $this->json($out);
     }
+   #[Route('/{id}/weather/update', name: 'weather_update', methods: ['PATCH'])]
+    public function updateWeather(int $id, EntityManagerInterface $em): JsonResponse
+    {
+        $trip = $em->getRepository(Trip::class)->find($id);
+        if (!$trip || $trip->getUser() !== $this->getUser()) {
+            return $this->json(['error' => 'Поїздку не знайдено'], 404);
+        }
+
+        $days = min(10, $trip->getEndDate()->diff($trip->getStartDate())->days + 1);
+        $resp = $this->http->request('GET', 'http://api.weatherapi.com/v1/forecast.json', [
+            'query' => [
+                'key'  => $this->weatherApiKey,
+                'q'    => "{$trip->getCity()},{$trip->getCountry()}",
+                'days' => $days,
+            ],
+        ]);
+
+        if ($resp->getStatusCode() !== 200) {
+            return $this->json(['error' => 'Не вдалося отримати прогноз'], 502);
+        }
+
+        $forecastRaw = $resp->toArray()['forecast']['forecastday'];
+        $today       = $forecastRaw[0]['day']; // беремо перший день прогнозу
+
+        $weather = $trip->getWeather() ?? (new Weather())->setTrip($trip);
+        // якщо новий екземпляр — треба його прив’язати й заперсистити
+        if (!$weather->getId()) {
+            $trip->setWeather($weather);
+            $em->persist($weather);
+        }
+
+        $weather
+            ->setForecast($forecastRaw)
+            ->setTemperature($today['avgtemp_c'])
+            ->setHumidity($today['avghumidity'])
+            ->setWeatherDescription($today['condition']['text'])
+            ->setUpdatedAt(new \DateTimeImmutable());
+
+        $em->flush();
+
+        return $this->json([
+            'updatedAt' => $weather->getUpdatedAt()->format('Y-m-d H:i:s'),
+            'temperature' => $weather->getTemperature(),
+            'humidity'    => $weather->getHumidity(),
+            'description' => $weather->getWeatherDescription(),
+            'forecast'    => $forecastRaw,
+        ], 200);
+    }
+
 }
