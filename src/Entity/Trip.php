@@ -30,6 +30,12 @@ class Trip
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $imageUrl = null;
 
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $startDate = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $endDate = null;
+
     #[ORM\ManyToOne(targetEntity: User::class, inversedBy: 'trips')]
     #[ORM\JoinColumn(nullable: false, onDelete: "CASCADE")]
     private ?User $user = null;
@@ -201,4 +207,27 @@ class Trip
         $this->weather = $weather;
         return $this;
     }
+
+    public function getStartDate(): \DateTimeImmutable
+    {
+        return $this->startDate;
+    }
+
+    public function setStartDate(\DateTimeImmutable $startDate): static
+    {
+        $this->startDate = $startDate;
+        return $this;
+    }
+
+    public function getEndDate(): \DateTimeImmutable
+    {
+        return $this->endDate;
+    }
+
+    public function setEndDate(\DateTimeImmutable $endDate): static
+    {
+        $this->endDate = $endDate;
+        return $this;
+    }
+
 }

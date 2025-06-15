@@ -1,3 +1,4 @@
+# config/packages/security.yaml
 security:
     password_hashers:
         App\Entity\User:
@@ -7,27 +8,34 @@ security:
         app_user_provider:
             entity:
                 class: App\Entity\User
-                property: email  # або username, якщо логін по ніку
+                property: email
 
     firewalls:
+        # 1) Реєстрація — без жодної авто­ри­зації
+        register:
+            pattern:   ^/api/users/register$
+            stateless: true
+            security:  false
+
+        # 2) Логін — через JSON Login
         login:
-            pattern: ^/api/login
+            pattern:   ^/api/login$
             stateless: true
             json_login:
-                check_path: /api/login
-                username_path: email
-                password_path: password
+                check_path:      /api/login
+                username_path:   email
+                password_path:   password
                 success_handler: App\Security\CustomAuthenticationSuccessHandler
                 failure_handler: lexik_jwt_authentication.handler.authentication_failure
 
+        # 3) Весь інший API — за JWT
         api:
-            pattern: ^/api
+            pattern:   ^/api
             stateless: true
-            jwt: ~
-            entry_point: null
+            lazy:      true
+            jwt:       ~
 
     access_control:
-        # ⚠️ Найперше правило — дозволити реєстрацію!
-        - { path: ^/api/users/register, roles: PUBLIC_ACCESS }
-        - { path: ^/api/login, roles: PUBLIC_ACCESS }
-        - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/users/register$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/login$,            roles: PUBLIC_ACCESS }
+        - { path: ^/api,                   roles: IS_AUTHENTICATED_FULLY }
