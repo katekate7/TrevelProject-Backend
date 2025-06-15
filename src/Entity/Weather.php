@@ -17,27 +17,20 @@ class Weather
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ?Trip $trip = null;
 
-    #[ORM\Column(type: 'float',   nullable: true)]
+    #[ORM\Column(type: 'float', nullable: true)]
     private ?float $temperature = null;
 
     #[ORM\Column(type: 'integer', nullable: true)]
-    private ?int   $humidity = null;
+    private ?int $humidity = null;
 
-    #[ORM\Column(type: 'string',  length: 255, nullable: true)]
+    #[ORM\Column(type: 'string', length: 255, nullable: true)]
     private ?string $weatherDescription = null;
 
-    // remove or comment out if you no longer need the raw JSON
     #[ORM\Column(type: 'json', nullable: true)]
     private array $forecast = [];
 
-
-    #[ORM\Column(type: 'datetime_immutable', options: ['default' => 'CURRENT_TIMESTAMP'])]
-    private \DateTimeImmutable $updatedAt;
-
-    public function __construct()
-    {
-        $this->updatedAt = new \DateTimeImmutable();
-    }
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $updatedAt = null;
 
     public function getId(): ?int
     {
@@ -60,7 +53,7 @@ class Weather
         return $this->temperature;
     }
 
-    public function setTemperature(float $temperature): static
+    public function setTemperature(?float $temperature): static
     {
         $this->temperature = $temperature;
         return $this;
@@ -71,7 +64,7 @@ class Weather
         return $this->humidity;
     }
 
-    public function setHumidity(int $humidity): static
+    public function setHumidity(?int $humidity): static
     {
         $this->humidity = $humidity;
         return $this;
@@ -82,7 +75,7 @@ class Weather
         return $this->weatherDescription;
     }
 
-    public function setWeatherDescription(string $desc): static
+    public function setWeatherDescription(?string $desc): static
     {
         $this->weatherDescription = $desc;
         return $this;
@@ -92,18 +85,19 @@ class Weather
     {
         return $this->forecast;
     }
+
     public function setForecast(array $forecast): static
     {
         $this->forecast = $forecast;
         return $this;
     }
 
-    public function getUpdatedAt(): \DateTimeImmutable
+    public function getUpdatedAt(): ?\DateTimeImmutable
     {
         return $this->updatedAt;
     }
 
-    public function setUpdatedAt(\DateTimeImmutable $updatedAt): static
+    public function setUpdatedAt(?\DateTimeImmutable $updatedAt): static
     {
         $this->updatedAt = $updatedAt;
         return $this;
