@@ -14,19 +14,23 @@ class Weather
     private ?int $id = null;
 
     #[ORM\OneToOne(targetEntity: Trip::class, inversedBy: 'weather', cascade: ['persist', 'remove'])]
-    #[ORM\JoinColumn(nullable: false, onDelete: "CASCADE")]
+    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ?Trip $trip = null;
 
-    #[ORM\Column(type: 'float')]
-    private float $temperature;
+    #[ORM\Column(type: 'float',   nullable: true)]
+    private ?float $temperature = null;
 
-    #[ORM\Column(type: 'integer')]
-    private int $humidity;
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int   $humidity = null;
 
-    #[ORM\Column(type: 'string', length: 255)]
-    private string $weatherDescription;
+    #[ORM\Column(type: 'string',  length: 255, nullable: true)]
+    private ?string $weatherDescription = null;
 
-    #[ORM\Column(type: 'datetime_immutable', options: ["default" => "CURRENT_TIMESTAMP"])]
+    // remove or comment out if you no longer need the raw JSON
+    // #[ORM\Column(type: 'json')]
+    // private array $forecast = [];
+
+    #[ORM\Column(type: 'datetime_immutable', options: ['default' => 'CURRENT_TIMESTAMP'])]
     private \DateTimeImmutable $updatedAt;
 
     public function __construct()
@@ -50,7 +54,7 @@ class Weather
         return $this;
     }
 
-    public function getTemperature(): float
+    public function getTemperature(): ?float
     {
         return $this->temperature;
     }
@@ -61,7 +65,7 @@ class Weather
         return $this;
     }
 
-    public function getHumidity(): int
+    public function getHumidity(): ?int
     {
         return $this->humidity;
     }
@@ -72,16 +76,28 @@ class Weather
         return $this;
     }
 
-    public function getWeatherDescription(): string
+    public function getWeatherDescription(): ?string
     {
         return $this->weatherDescription;
     }
 
-    public function setWeatherDescription(string $weatherDescription): static
+    public function setWeatherDescription(string $desc): static
     {
-        $this->weatherDescription = $weatherDescription;
+        $this->weatherDescription = $desc;
         return $this;
     }
+
+    // if you kept the JSON forecast:
+    // public function getForecast(): array
+    // {
+    //     return $this->forecast;
+    // }
+    //
+    // public function setForecast(array $forecast): static
+    // {
+    //     $this->forecast = $forecast;
+    //     return $this;
+    // }
 
     public function getUpdatedAt(): \DateTimeImmutable
     {
