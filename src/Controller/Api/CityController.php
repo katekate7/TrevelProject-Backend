@@ -26,7 +26,8 @@ class CityController extends AbstractController
                 'limit' => 5,
             ],
             'headers' => [
-                'User-Agent' => 'MyTravelApp/1.0 (contact@email.com)',
+                'User-Agent'       => 'MyTravelApp/1.0 (email)',
+                'Accept-Language'  => 'en',
             ],
         ]);
 
