@@ -93,34 +93,34 @@ class TripController extends AbstractController
     public function getWeather(int $id, EntityManagerInterface $em): JsonResponse
     {
         $trip = $em->getRepository(Trip::class)->find($id);
-
         if (!$trip || $trip->getUser() !== $this->getUser()) {
             return $this->json(['error' => 'Поїздку не знайдено'], 404);
         }
 
-        $w = $trip->getWeather();
-        if (!$w || empty($w->getForecast())) {
+        $weather = $trip->getWeather();
+        if (!$weather || empty($weather->getForecast())) {
             return $this->json([]);
         }
 
-        $out = [];
-        foreach ($w->getForecast() as $day) {
-            $d = new \DateTimeImmutable($day['date']);
-            if ($d < $trip->getStartDate() || $d > $trip->getEndDate()) {
-                continue;
-            }
+        $forecast  = $weather->getForecast();
+        $tripStart = $trip->getStartDate();
+        $tripEnd   = $trip->getEndDate();
 
-            $out[] = [
-                'dt'      => $day['date_epoch'],
-                'temp'    => [
-                    'day'   => $day['day']['avgtemp_c'],
-                    'night' => $day['day']['mintemp_c'],
-                ],
-                'weather' => [[
-                    'description' => $day['day']['condition']['text'],
-                    'icon'        => pathinfo($day['day']['condition']['icon'], PATHINFO_FILENAME),
-                ]]
-            ];
+        // 1️⃣  Прогноз тільки на дні поїздки
+        $out = [];
+        foreach ($forecast as $day) {
+            $d = new \DateTimeImmutable($day['date']);
+            if ($d >= $tripStart && $d <= $tripEnd) {
+                $out[] = $this->formatDay($day);
+            }
+        }
+
+        // 2️⃣  Якщо нічого не потрапило – беремо перші 8-10 днів
+        if (\count($out) === 0) {
+            $slice = \array_slice($forecast, 0, \min(10, \count($forecast)));
+            foreach ($slice as $day) {
+                $out[] = $this->formatDay($day);
+            }
         }
 
         return $this->json($out, 200);
@@ -130,17 +130,19 @@ class TripController extends AbstractController
     public function updateWeather(int $id, EntityManagerInterface $em): JsonResponse
     {
         $trip = $em->getRepository(Trip::class)->find($id);
-
         if (!$trip || $trip->getUser() !== $this->getUser()) {
             return $this->json(['error' => 'Поїздку не знайдено'], 404);
         }
 
-        $days = min(10, $trip->getEndDate()->diff($trip->getStartDate())->days + 1);
+        // скільки днів нам потрібно, щоб накрити весь trip, але не > 10
+        $daysNeeded = $trip->getEndDate()->diff($trip->getStartDate())->days + 1;
+        $daysToAsk  = \max(10, \min(10, $daysNeeded));   // завжди не менше 10 – для fallback
+
         $resp = $this->http->request('GET', 'http://api.weatherapi.com/v1/forecast.json', [
             'query' => [
                 'key'  => $this->weatherApiKey,
                 'q'    => "{$trip->getCity()},{$trip->getCountry()}",
-                'days' => $days,
+                'days' => $daysToAsk,
             ],
         ]);
 
@@ -152,7 +154,6 @@ class TripController extends AbstractController
         $today       = $forecastRaw[0]['day'];
 
         $weather = $trip->getWeather() ?? (new Weather())->setTrip($trip);
-
         if (!$weather->getId()) {
             $trip->setWeather($weather);
             $em->persist($weather);
@@ -174,5 +175,23 @@ class TripController extends AbstractController
             'description' => $weather->getWeatherDescription(),
             'forecast'    => $forecastRaw,
         ], 200);
+    }
+
+    // ───────────────────────────────────────────────
+    // 🔸   Допоміжний приватний метод
+    // ───────────────────────────────────────────────
+    private function formatDay(array $day): array
+    {
+        return [
+            'dt'   => $day['date_epoch'],
+            'temp' => [
+                'day'   => $day['day']['avgtemp_c'],
+                'night' => $day['day']['mintemp_c'],
+            ],
+            'weather' => [[
+                'description' => $day['day']['condition']['text'],
+                'icon'        => \pathinfo($day['day']['condition']['icon'], \PATHINFO_FILENAME),
+            ]],
+        ];
     }
 }
