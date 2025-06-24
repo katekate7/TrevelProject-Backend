@@ -10,6 +10,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Component\HttpFoundation\Request;
 
 #[Route('/api/trips', name: 'api_trips_')]
 class TripController extends AbstractController
@@ -23,7 +24,32 @@ class TripController extends AbstractController
         $this->weatherApiKey = $weatherApiKey;
     }
 
-    #[Route('/{id}', name: 'get', methods: ['GET'])]
+    #[Route('/add', name: 'add', methods: ['POST'])]
+    public function addTrip(Request $request, EntityManagerInterface $em): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true) ?? [];
+
+        // -- simple validation (add your own rules) --
+        foreach (['country', 'city', 'startDate', 'endDate'] as $field) {
+            if (empty($data[$field])) {
+                return $this->json(['error' => "Missing $field"], 400);
+            }
+        }
+
+        $trip = (new Trip())
+            ->setUser($this->getUser())
+            ->setCountry($data['country'])
+            ->setCity($data['city'])
+            ->setStartDate(new \DateTimeImmutable($data['startDate']))
+            ->setEndDate(new \DateTimeImmutable($data['endDate']));
+
+        $em->persist($trip);
+        $em->flush();
+
+        return $this->json(['id' => $trip->getId()], 201);
+    }
+
+    #[Route('/{id<\d+>}', name: 'get', methods: ['GET'])]
     public function getTrip(int $id, EntityManagerInterface $em): JsonResponse
     {
         $trip = $em->getRepository(Trip::class)->find($id);
