@@ -9,80 +9,106 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
 
+#[Route('/api/items', name: 'api_items_')]
 class ItemController extends AbstractController
 {
-    #[Route('/api/items', name: 'get_all_items', methods: ['GET'])]
-    public function getAllItems(EntityManagerInterface $em): JsonResponse
+    /* ───────────────────────────────────────────
+     * PUBLIC:  GET /api/items   → list for everyone
+     * ─────────────────────────────────────────── */
+    #[Route('', name: 'list', methods: ['GET'])]
+    public function list(EntityManagerInterface $em): JsonResponse
     {
-        $items = $em->getRepository(Item::class)->findAll();
+        $items = $em->getRepository(Item::class)
+                    ->createQueryBuilder('i')
+                    ->orderBy('i.importanceLevel', 'ASC')
+                    ->getQuery()
+                    ->getResult();
 
-        $data = array_map(function (Item $item) {
-            return [
-                'id' => $item->getId(),
-                'name' => $item->getName(),
-            ];
-        }, $items);
+        $data = \array_map(fn(Item $i) => [
+            'id'   => $i->getId(),
+            'name' => $i->getName(),
+            'importanceLevel' => $i->getImportanceLevel(),
+        ], $items);
 
-        return $this->json($data);
+        return $this->json($data, 200);
     }
 
-    #[Route('/api/admin/items', name: 'admin_items_create', methods: ['POST'])]
-    public function addItem(Request $request, EntityManagerInterface $em): JsonResponse
-    {
+    /* ───────────────────────────────────────────
+     * ADMIN:  POST /api/items        (create)
+     * ─────────────────────────────────────────── */
+    #[Route('', name: 'create', methods: ['POST'])]
+    public function add(
+        Request $request,
+        EntityManagerInterface $em
+    ): JsonResponse {
         $this->denyAccessUnlessGranted('ROLE_ADMIN');
 
         $data = json_decode($request->getContent(), true);
 
-        if (!isset($data['name'])) {
+        if (empty($data['name'])) {
             return $this->json(['error' => 'Missing item name'], 400);
         }
 
-        $item = new Item();
-        $item->setName($data['name']);
+        $item = (new Item())
+            ->setName($data['name'])
+            ->setImportanceLevel((int)($data['importanceLevel'] ?? 5));
 
         $em->persist($item);
         $em->flush();
 
         return $this->json([
-            'message' => 'Item added successfully',
-            'item' => [
-                'id' => $item->getId(),
-                'name' => $item->getName()
-            ]
+            'message' => 'Item created',
+            'item'    => [
+                'id'   => $item->getId(),
+                'name' => $item->getName(),
+                'importanceLevel' => $item->getImportanceLevel(),
+            ],
         ], 201);
     }
 
-    #[Route('/api/admin/items/{id}', name: 'admin_items_update', methods: ['PATCH'])]
-    public function updateItem(Item $item, Request $request, EntityManagerInterface $em): JsonResponse
-    {
+    /* ───────────────────────────────────────────
+     * ADMIN:  PATCH /api/items/{id}  (update)
+     * ─────────────────────────────────────────── */
+    #[Route('/{id}', name: 'update', methods: ['PATCH'])]
+    public function update(
+        Item $item,
+        Request $request,
+        EntityManagerInterface $em
+    ): JsonResponse {
         $this->denyAccessUnlessGranted('ROLE_ADMIN');
 
         $data = json_decode($request->getContent(), true);
 
-        if (!isset($data['name'])) {
-            return $this->json(['error' => 'Missing item name'], 400);
+        if (!empty($data['name'])) {
+            $item->setName($data['name']);
+        }
+        if (isset($data['importanceLevel'])) {
+            $item->setImportanceLevel((int)$data['importanceLevel']);
         }
 
-        $item->setName($data['name']);
         $em->flush();
 
         return $this->json([
-            'message' => 'Item updated successfully',
+            'message' => 'Item updated',
             'item' => [
-                'id' => $item->getId(),
-                'name' => $item->getName()
-            ]
-        ]);
+                'id'   => $item->getId(),
+                'name' => $item->getName(),
+                'importanceLevel' => $item->getImportanceLevel(),
+            ],
+        ], 200);
     }
 
-    #[Route('/api/admin/items/{id}', name: 'admin_items_delete', methods: ['DELETE'])]
-    public function deleteItem(Item $item, EntityManagerInterface $em): JsonResponse
+    /* ───────────────────────────────────────────
+     * ADMIN:  DELETE /api/items/{id}
+     * ─────────────────────────────────────────── */
+    #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
+    public function delete(Item $item, EntityManagerInterface $em): JsonResponse
     {
         $this->denyAccessUnlessGranted('ROLE_ADMIN');
 
         $em->remove($item);
         $em->flush();
 
-        return $this->json(['message' => 'Item deleted successfully']);
+        return $this->json(['message' => 'Item deleted'], 200);
     }
 }
