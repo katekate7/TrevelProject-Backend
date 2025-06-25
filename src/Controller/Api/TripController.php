@@ -89,6 +89,35 @@ class TripController extends AbstractController
         ], 200);
     }
 
+    #[Route('/{id}/sightseeings', name: 'sightseeings_update', methods: ['PATCH'])]
+    public function updateSightseeings(
+        int $id,
+        Request $request,
+        EntityManagerInterface $em
+    ): JsonResponse {
+        $trip = $em->getRepository(Trip::class)->find($id);
+        if (!$trip || $trip->getUser() !== $this->getUser()) {
+            return $this->json(['error' => 'Поїздку не знайдено'], 404);
+        }
+
+        $data   = json_decode($request->getContent(), true);
+        $titles = $data['titles'] ?? null;
+
+        if (!$titles || !\is_array($titles) || $titles === []) {
+            return $this->json(['error' => 'titles must be a non-empty array'], 400);
+        }
+
+        $clean = \array_map(
+            fn($t) => \trim(\strip_tags($t)),
+            $titles
+        );
+
+        $trip->setSightseeings(\implode(', ', $clean));
+        $em->flush();
+
+        return $this->json(['saved' => true], 200);
+    }
+
     #[Route('/{id}/weather', name: 'weather', methods: ['GET'])]
     public function getWeather(int $id, EntityManagerInterface $em): JsonResponse
     {
@@ -125,6 +154,34 @@ class TripController extends AbstractController
 
         return $this->json($out, 200);
     }
+
+    #[Route('/{id}/route', name: 'route_get', methods: ['GET'])]
+    public function getRoute(int $id, EntityManagerInterface $em): JsonResponse
+    {
+        $trip = $em->getRepository(Trip::class)->find($id);
+        if (!$trip || $trip->getUser() !== $this->getUser()) {
+            return $this->json(['error' => 'Поїздку не знайдено'], 404);
+        }
+
+        $route = $trip->getRoute();  // One-to-One entity you create earlier
+        if (!$route) {
+            return $this->json(['error' => 'Route not found'], 404);
+        }
+
+        $wps = array_map(fn($w) => [
+            'id'    => $w->getId(),
+            'title' => $w->getTitle(),
+            'lat'   => $w->getLat(),
+            'lng'   => $w->getLng(),
+        ], $route->getWaypoints()->toArray());
+
+        return $this->json([
+            'id'        => $route->getId(),
+            'tripId'    => $trip->getId(),
+            'waypoints' => $wps,
+        ]);
+    }
+
 
     #[Route('/{id}/weather/update', name: 'weather_update', methods: ['PATCH'])]
     public function updateWeather(int $id, EntityManagerInterface $em): JsonResponse
