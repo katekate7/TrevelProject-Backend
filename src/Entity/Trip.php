@@ -44,6 +44,10 @@ class Trip
     #[Groups(['trip:read'])]
     private ?\DateTimeImmutable $endDate = null;
 
+    #[ORM\Column(type: 'text', nullable: true)]
+    #[Groups(['trip:read'])]          // <= expose only in a single-trip response
+    private ?string $sightseeings = null;   //  NEW FIELD
+
     #[ORM\ManyToOne(targetEntity: User::class, inversedBy: 'trips')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ?User $user = null;
@@ -57,7 +61,10 @@ class Trip
         $this->createdAt = new \DateTimeImmutable();
     }
 
+    /* getters & setters ================================================== */
+
     public function getId(): ?int { return $this->id; }
+
     public function getCity(): string { return $this->city; }
     public function setCity(string $c): static { $this->city = $c; return $this; }
 
@@ -77,6 +84,9 @@ class Trip
 
     public function getEndDate(): ?\DateTimeImmutable { return $this->endDate; }
     public function setEndDate(?\DateTimeImmutable $d): static { $this->endDate = $d; return $this; }
+
+    public function getSightseeings(): ?string { return $this->sightseeings; }
+    public function setSightseeings(?string $s): static { $this->sightseeings = $s; return $this; }
 
     public function getUser(): ?User { return $this->user; }
     public function setUser(?User $u): static { $this->user = $u; return $this; }
