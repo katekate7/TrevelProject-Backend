@@ -9,9 +9,12 @@ use App\Repository\TripRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
+// Додайте цей імпорт:
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Component\HttpFoundation\Request;
+
 
 #[Route('/api/trips', name: 'api_trips_')]
 class TripController extends AbstractController
@@ -72,6 +75,27 @@ class TripController extends AbstractController
         $em->flush();
 
         return $this->json(['id' => $trip->getId()], 201);
+    }
+
+
+    #[Route('/{id<\d+>}', name: 'delete', methods: ['DELETE'])]
+    public function deleteTrip(
+        int $id,
+        EntityManagerInterface $em
+    ): JsonResponse {
+        $trip = $this->tripRepo->find($id);
+        if (!$trip || $trip->getUser() !== $this->getUser()) {
+            return $this->json(
+                ['error' => 'Поїздку не знайдено'],
+                Response::HTTP_NOT_FOUND
+            );
+        }
+
+        $em->remove($trip);
+        $em->flush();
+
+        // Повертаємо порожній JSON з кодом 204
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
 
     #[Route('/{id<\d+>}', name: 'get', methods: ['GET'])]
