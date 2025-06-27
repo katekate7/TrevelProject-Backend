@@ -5,6 +5,7 @@ namespace App\Controller\Api;
 
 use App\Entity\Trip;
 use App\Entity\Weather;
+use App\Repository\TripRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -16,12 +17,37 @@ use Symfony\Component\HttpFoundation\Request;
 class TripController extends AbstractController
 {
     private HttpClientInterface $http;
-    private string $weatherApiKey;
+    private string              $weatherApiKey;
+    private TripRepository      $tripRepo;
 
-    public function __construct(HttpClientInterface $http, string $weatherApiKey)
-    {
-        $this->http = $http;
+    public function __construct(
+        HttpClientInterface $http,
+        string $weatherApiKey,
+        TripRepository $tripRepo
+    ) {
+        $this->http          = $http;
         $this->weatherApiKey = $weatherApiKey;
+        $this->tripRepo      = $tripRepo;
+    }
+
+    #[Route('', name: 'list', methods: ['GET'])]
+    public function list(): JsonResponse
+    {
+        $user  = $this->getUser();
+        $trips = $this->tripRepo->findBy(
+            ['user' => $user],
+            ['startDate' => 'DESC']
+        );
+
+        $data = array_map(fn(Trip $t) => [
+            'id'        => $t->getId(),
+            'city'      => $t->getCity(),
+            'country'   => $t->getCountry(),
+            'startDate' => $t->getStartDate()->format('Y-m-d'),
+            'endDate'   => $t->getEndDate()->format('Y-m-d'),
+        ], $trips);
+
+        return $this->json($data, 200);
     }
 
     #[Route('/add', name: 'add', methods: ['POST'])]
@@ -29,10 +55,9 @@ class TripController extends AbstractController
     {
         $data = json_decode($request->getContent(), true) ?? [];
 
-        // -- simple validation (add your own rules) --
         foreach (['country', 'city', 'startDate', 'endDate'] as $field) {
             if (empty($data[$field])) {
-                return $this->json(['error' => "Missing $field"], 400);
+                return $this->json(['error' => "Missing field: $field"], 400);
             }
         }
 
@@ -52,67 +77,52 @@ class TripController extends AbstractController
     #[Route('/{id<\d+>}', name: 'get', methods: ['GET'])]
     public function getTrip(int $id, EntityManagerInterface $em): JsonResponse
     {
-        $trip = $em->getRepository(Trip::class)->find($id);
-
+        $trip = $this->tripRepo->find($id);
         if (!$trip || $trip->getUser() !== $this->getUser()) {
             return $this->json(['error' => 'Поїздку не знайдено'], 404);
         }
 
-        // спробуємо витягти опис і картинку з Вікіпедії
-        $wikiDesc     = null;
+        $wikiDesc = null;
         $wikiImageUrl = null;
-
         try {
-            $wikiResp = $this->http->request(
+            $resp = $this->http->request(
                 'GET',
                 'https://en.wikipedia.org/api/rest_v1/page/summary/' . urlencode($trip->getCity())
             );
-
-            if ($wikiResp->getStatusCode() === 200) {
-                $wiki = $wikiResp->toArray();
+            if ($resp->getStatusCode() === 200) {
+                $wiki = $resp->toArray();
                 $wikiDesc     = $wiki['extract'] ?? null;
                 $wikiImageUrl = $wiki['thumbnail']['source'] ?? null;
             }
-        } catch (\Exception $e) {
-            // якщо щось пішло не так — пропускаємо
-        }
+        } catch (\Exception) {}
 
-        // повертаємо або власний опис/картинку, або з Вікі
         return $this->json([
             'id'          => $trip->getId(),
             'country'     => $trip->getCountry(),
             'city'        => $trip->getCity(),
-            'startDate'   => $trip->getStartDate()?->format('Y-m-d'),
-            'endDate'     => $trip->getEndDate()?->format('Y-m-d'),
+            'startDate'   => $trip->getStartDate()->format('Y-m-d'),
+            'endDate'     => $trip->getEndDate()->format('Y-m-d'),
             'description' => $trip->getDescription() ?? $wikiDesc,
             'imageUrl'    => $trip->getImageUrl()    ?? $wikiImageUrl,
         ], 200);
     }
 
     #[Route('/{id}/sightseeings', name: 'sightseeings_update', methods: ['PATCH'])]
-    public function updateSightseeings(
-        int $id,
-        Request $request,
-        EntityManagerInterface $em
-    ): JsonResponse {
-        $trip = $em->getRepository(Trip::class)->find($id);
+    public function updateSightseeings(int $id, Request $request, EntityManagerInterface $em): JsonResponse
+    {
+        $trip = $this->tripRepo->find($id);
         if (!$trip || $trip->getUser() !== $this->getUser()) {
             return $this->json(['error' => 'Поїздку не знайдено'], 404);
         }
 
         $data   = json_decode($request->getContent(), true);
         $titles = $data['titles'] ?? null;
-
-        if (!$titles || !\is_array($titles) || $titles === []) {
+        if (!is_array($titles) || empty($titles)) {
             return $this->json(['error' => 'titles must be a non-empty array'], 400);
         }
 
-        $clean = \array_map(
-            fn($t) => \trim(\strip_tags($t)),
-            $titles
-        );
-
-        $trip->setSightseeings(\implode(', ', $clean));
+        $clean = array_map(fn($t) => trim(strip_tags($t)), $titles);
+        $trip->setSightseeings(implode(', ', $clean));
         $em->flush();
 
         return $this->json(['saved' => true], 200);
@@ -121,32 +131,30 @@ class TripController extends AbstractController
     #[Route('/{id}/weather', name: 'weather', methods: ['GET'])]
     public function getWeather(int $id, EntityManagerInterface $em): JsonResponse
     {
-        $trip = $em->getRepository(Trip::class)->find($id);
+        $trip = $this->tripRepo->find($id);
         if (!$trip || $trip->getUser() !== $this->getUser()) {
             return $this->json(['error' => 'Поїздку не знайдено'], 404);
         }
 
         $weather = $trip->getWeather();
         if (!$weather || empty($weather->getForecast())) {
-            return $this->json([]);
+            return $this->json([], 200);
         }
 
-        $forecast  = $weather->getForecast();
-        $tripStart = $trip->getStartDate();
-        $tripEnd   = $trip->getEndDate();
+        $forecast = $weather->getForecast();
+        $start    = $trip->getStartDate();
+        $end      = $trip->getEndDate();
+        $out      = [];
 
-        // 1️⃣  Прогноз тільки на дні поїздки
-        $out = [];
         foreach ($forecast as $day) {
             $d = new \DateTimeImmutable($day['date']);
-            if ($d >= $tripStart && $d <= $tripEnd) {
+            if ($d >= $start && $d <= $end) {
                 $out[] = $this->formatDay($day);
             }
         }
 
-        // 2️⃣  Якщо нічого не потрапило – беремо перші 8-10 днів
-        if (\count($out) === 0) {
-            $slice = \array_slice($forecast, 0, \min(10, \count($forecast)));
+        if (empty($out)) {
+            $slice = array_slice($forecast, 0, min(10, count($forecast)));
             foreach ($slice as $day) {
                 $out[] = $this->formatDay($day);
             }
@@ -158,12 +166,12 @@ class TripController extends AbstractController
     #[Route('/{id}/route', name: 'route_get', methods: ['GET'])]
     public function getRoute(int $id, EntityManagerInterface $em): JsonResponse
     {
-        $trip = $em->getRepository(Trip::class)->find($id);
+        $trip = $this->tripRepo->find($id);
         if (!$trip || $trip->getUser() !== $this->getUser()) {
             return $this->json(['error' => 'Поїздку не знайдено'], 404);
         }
 
-        $route = $trip->getRoute();  // One-to-One entity you create earlier
+        $route = $trip->getRoute();
         if (!$route) {
             return $this->json(['error' => 'Route not found'], 404);
         }
@@ -179,21 +187,19 @@ class TripController extends AbstractController
             'id'        => $route->getId(),
             'tripId'    => $trip->getId(),
             'waypoints' => $wps,
-        ]);
+        ], 200);
     }
-
 
     #[Route('/{id}/weather/update', name: 'weather_update', methods: ['PATCH'])]
     public function updateWeather(int $id, EntityManagerInterface $em): JsonResponse
     {
-        $trip = $em->getRepository(Trip::class)->find($id);
+        $trip = $this->tripRepo->find($id);
         if (!$trip || $trip->getUser() !== $this->getUser()) {
             return $this->json(['error' => 'Поїздку не знайдено'], 404);
         }
 
-        // скільки днів нам потрібно, щоб накрити весь trip, але не > 10
         $daysNeeded = $trip->getEndDate()->diff($trip->getStartDate())->days + 1;
-        $daysToAsk  = \max(10, \min(10, $daysNeeded));   // завжди не менше 10 – для fallback
+        $daysToAsk  = max(10, min(10, $daysNeeded));
 
         $resp = $this->http->request('GET', 'http://api.weatherapi.com/v1/forecast.json', [
             'query' => [
@@ -234,9 +240,6 @@ class TripController extends AbstractController
         ], 200);
     }
 
-    // ───────────────────────────────────────────────
-    // 🔸   Допоміжний приватний метод
-    // ───────────────────────────────────────────────
     private function formatDay(array $day): array
     {
         return [
@@ -247,7 +250,7 @@ class TripController extends AbstractController
             ],
             'weather' => [[
                 'description' => $day['day']['condition']['text'],
-                'icon'        => \pathinfo($day['day']['condition']['icon'], \PATHINFO_FILENAME),
+                'icon'        => pathinfo($day['day']['condition']['icon'], PATHINFO_FILENAME),
             ]],
         ];
     }
