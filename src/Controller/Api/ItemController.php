@@ -11,9 +11,8 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
 
-/**
- * @Route("/api/items", name="api_items_")
- */
+
+#[Route('/api/items', name: 'api_items_')]
 class ItemController extends AbstractController
 {
     public function __construct(private EntityManagerInterface $em) {}
@@ -106,6 +105,7 @@ class ItemController extends AbstractController
      * USER:  POST /api/items/{itemId}/toggle/{tripId}
      *        → поміняти “взяв / не взяв” у конкретній подорожі
      * ────────────────────────────────────────────── */
+
     #[Route('/{itemId}/toggle/{tripId}', name: 'toggle', methods: ['POST'])]
     public function toggleTaken(int $itemId, int $tripId): JsonResponse
     {
@@ -114,9 +114,7 @@ class ItemController extends AbstractController
             return $this->json([], 401);
         }
 
-        /** @var Item|null $item */
         $item = $this->em->find(Item::class, $itemId);
-        /** @var Trip|null $trip */
         $trip = $this->em->find(Trip::class, $tripId);
 
         if (!$item || !$trip || $trip->getUser() !== $user) {
@@ -124,8 +122,7 @@ class ItemController extends AbstractController
         }
 
         $repo = $this->em->getRepository(TripItem::class);
-        /** @var TripItem|null $ti */
-        $ti = $repo->findOneBy(['trip' => $trip, 'item' => $item]);
+        $ti   = $repo->findOneBy(['trip' => $trip, 'item' => $item]);
 
         if (!$ti) {
             $ti = (new TripItem())
@@ -141,4 +138,5 @@ class ItemController extends AbstractController
 
         return $this->json(['taken' => $ti->isTaken()]);
     }
+
 }
