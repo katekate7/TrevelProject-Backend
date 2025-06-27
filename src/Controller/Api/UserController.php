@@ -98,4 +98,21 @@ class UserController extends AbstractController
             ],
         ], 201);
     }
+    #[Route('', name: 'list', methods: ['GET'])]
+    public function list(EntityManagerInterface $em): JsonResponse
+    {
+        $this->denyAccessUnlessGranted('ROLE_ADMIN');
+
+        $users = $em->getRepository(User::class)->findAll();
+
+        $out = array_map(fn (User $u) => [
+            'id'        => $u->getId(),
+            'username'  => $u->getUsername(),
+            'email'     => $u->getEmail(),
+            'createdAt' => $u->getCreatedAt()->format('Y-m-d'),
+        ], $users);
+
+        return $this->json($out);
+    }
+
 }
