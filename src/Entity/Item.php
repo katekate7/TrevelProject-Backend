@@ -18,7 +18,13 @@ class Item
     #[ORM\Column(type: 'string', length: 255, unique: true)]
     private string $name;
 
-    #[ORM\Column(type: 'string', length: 20, options: ["default" => "optional"])]
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $description = null;
+
+    #[ORM\Column(type: 'boolean', options: ['default' => false])]
+    private bool $important = false;
+
+    #[ORM\Column(type: 'string', length: 20, options: ['default' => 'optional'])]
     private string $importanceLevel = 'optional';
 
     #[ORM\OneToMany(mappedBy: 'item', targetEntity: TripItem::class, cascade: ['persist', 'remove'])]
@@ -39,9 +45,31 @@ class Item
         return $this->name;
     }
 
-    public function setName(string $name): static
+    public function setName(string $name): self
     {
         $this->name = $name;
+        return $this;
+    }
+
+    public function getDescription(): ?string
+    {
+        return $this->description;
+    }
+
+    public function setDescription(?string $description): self
+    {
+        $this->description = $description;
+        return $this;
+    }
+
+    public function isImportant(): bool
+    {
+        return $this->important;
+    }
+
+    public function setImportant(bool $important): self
+    {
+        $this->important = $important;
         return $this;
     }
 
@@ -50,12 +78,15 @@ class Item
         return $this->importanceLevel;
     }
 
-    public function setImportanceLevel(string $importanceLevel): static
+    public function setImportanceLevel(string $importanceLevel): self
     {
         $this->importanceLevel = $importanceLevel;
         return $this;
     }
 
+    /**
+     * @return Collection|TripItem[]
+     */
     public function getTripItems(): Collection
     {
         return $this->tripItems;
