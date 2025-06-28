@@ -1,4 +1,5 @@
 <?php
+// src/Entity/Trajet.php
 
 namespace App\Entity;
 
@@ -10,20 +11,20 @@ class Trajet
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
-    #[ORM\Column(type: 'integer')]
+    #[ORM\Column(type:"integer")]
     private ?int $id = null;
 
-    #[ORM\ManyToOne(targetEntity: Trip::class, inversedBy: 'trajets')]
-    #[ORM\JoinColumn(nullable: false, onDelete: "CASCADE")]
+    #[ORM\ManyToOne(targetEntity: Trip::class, inversedBy:"trajets")]
+    #[ORM\JoinColumn(nullable:false, onDelete:"CASCADE")]
     private ?Trip $trip = null;
 
-    #[ORM\Column(type: 'text')]
-    private string $routeData;
+    #[ORM\Column(type:"json")]
+    private array $routeData = [];
 
-    #[ORM\Column(type: 'float', nullable: true)]
+    #[ORM\Column(type:"float", nullable:true)]
     private ?float $distance = null;
 
-    #[ORM\Column(type: 'datetime_immutable', options: ["default" => "CURRENT_TIMESTAMP"])]
+    #[ORM\Column(type:"datetime_immutable")]
     private \DateTimeImmutable $createdAt;
 
     public function __construct()
@@ -31,46 +32,16 @@ class Trajet
         $this->createdAt = new \DateTimeImmutable();
     }
 
-    public function getId(): ?int
-    {
-        return $this->id;
-    }
+    public function getId(): ?int { return $this->id; }
 
-    public function getTrip(): ?Trip
-    {
-        return $this->trip;
-    }
+    public function getTrip(): ?Trip { return $this->trip; }
+    public function setTrip(Trip $trip): self { $this->trip = $trip; return $this; }
 
-    public function setTrip(?Trip $trip): static
-    {
-        $this->trip = $trip;
-        return $this;
-    }
+    public function getRouteData(): array { return $this->routeData; }
+    public function setRouteData(array $d): self { $this->routeData = $d; return $this; }
 
-    public function getRouteData(): string
-    {
-        return $this->routeData;
-    }
+    public function getDistance(): ?float { return $this->distance; }
+    public function setDistance(?float $d): self { $this->distance = $d; return $this; }
 
-    public function setRouteData(string $routeData): static
-    {
-        $this->routeData = $routeData;
-        return $this;
-    }
-
-    public function getDistance(): ?float
-    {
-        return $this->distance;
-    }
-
-    public function setDistance(?float $distance): static
-    {
-        $this->distance = $distance;
-        return $this;
-    }
-
-    public function getCreatedAt(): \DateTimeImmutable
-    {
-        return $this->createdAt;
-    }
+    public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
 }
