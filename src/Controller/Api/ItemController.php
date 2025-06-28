@@ -59,7 +59,6 @@ class ItemController extends AbstractController
             'item'    => [
                 'id'              => $item->getId(),
                 'name'            => $item->getName(),
-                'importanceLevel' => $item->getImportanceLevel(),
                 'important'       => $item->isImportant(),
             ],
         ], 201);
