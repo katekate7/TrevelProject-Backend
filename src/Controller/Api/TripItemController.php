@@ -1,5 +1,5 @@
 <?php
-// src/Controller/Api/TripItemController.php
+
 namespace App\Controller\Api;
 
 use App\Entity\Trip;
@@ -16,7 +16,6 @@ class TripItemController extends AbstractController
 {
     public function __construct(private EntityManagerInterface $em) {}
 
-    // 1️⃣ — повертаємо для цієї поїздки всі речі з прапором taken
     #[Route('', name: 'list', methods: ['GET'])]
     public function list(int $tripId): JsonResponse
     {
@@ -26,15 +25,12 @@ class TripItemController extends AbstractController
             return $this->json(['error'=>'Not found'], 404);
         }
 
-        // всі глобальні речі
         $all = $this->em->getRepository(Item::class)
             ->findBy([], ['importanceLevel'=>'ASC']);
 
-        // вже існуючі TripItem
         $tis = $this->em->getRepository(TripItem::class)
             ->findBy(['trip'=>$trip]);
 
-        // скласти map itemId→taken
         $map = [];
         foreach ($tis as $ti) {
             $map[$ti->getItem()->getId()] = $ti->isChecked();
@@ -46,6 +42,7 @@ class TripItemController extends AbstractController
                 'id'              => $i->getId(),
                 'name'            => $i->getName(),
                 'importanceLevel' => $i->getImportanceLevel(),
+                'important'       => $i->isImportant(),
                 'isChecked'       => $map[$i->getId()] ?? false,
             ];
         }
@@ -53,7 +50,6 @@ class TripItemController extends AbstractController
         return $this->json($out);
     }
 
-    // 2️⃣ — переключаємо взяту/не взяту
     #[Route('/{itemId}', name: 'toggle', methods: ['POST'])]
     public function toggle(int $tripId, int $itemId): JsonResponse
     {
