@@ -41,7 +41,6 @@ class TripItemController extends AbstractController
             $out[] = [
                 'id'              => $i->getId(),
                 'name'            => $i->getName(),
-                'importanceLevel' => $i->getImportanceLevel(),
                 'important'       => $i->isImportant(),
                 'isChecked'       => $map[$i->getId()] ?? false,
             ];
