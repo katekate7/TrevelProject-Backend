@@ -6,6 +6,8 @@ namespace App\Entity;
 use App\Repository\TripRepository;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 
 #[ORM\Entity(repositoryClass: TripRepository::class)]
 class Trip
@@ -52,6 +54,12 @@ class Trip
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ?User $user = null;
 
+    #[ORM\OneToMany(mappedBy: 'trip', targetEntity: Place::class, cascade: ['persist','remove'], orphanRemoval: true)]
+    private Collection $places;
+
+    #[ORM\OneToMany(mappedBy: 'trip', targetEntity: Trajet::class, cascade: ['persist','remove'], orphanRemoval: true)]
+    private Collection $trajets;
+
     #[ORM\OneToOne(mappedBy: 'trip', targetEntity: Weather::class, cascade: ['persist','remove'])]
     #[Groups(['trip:read'])]
     private ?Weather $weather = null;
@@ -59,6 +67,9 @@ class Trip
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
+        $this->places = new ArrayCollection();
+        $this->trajets = new ArrayCollection();
+
     }
 
     /* getters & setters ================================================== */
@@ -93,4 +104,18 @@ class Trip
 
     public function getWeather(): ?Weather { return $this->weather; }
     public function setWeather(?Weather $w): static { $this->weather = $w; return $this; }
+
+    public function getPlaces(): Collection { return $this->places; }
+    public function addPlace(Place $p): self { if(!$this->places->contains($p)){ $this->places->add($p); $p->setTrip($this); } return $this; }
+    public function removePlace(Place $p): self { $this->places->removeElement($p); return $this; }
+
+    public function getTrajets(): Collection { return $this->trajets; }
+    public function addTrajet(Trajet $t): self { if(!$this->trajets->contains($t)){ $this->trajets->add($t); $t->setTrip($this);} return $this; }
+    public function removeTrajet(Trajet $t): self { $this->trajets->removeElement($t); return $this; }
+
+    public function getLastTrajet(): ?Trajet
+    {
+        return $this->trajets->isEmpty() ? null : $this->trajets->last();
+    }
+
 }
