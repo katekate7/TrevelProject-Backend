@@ -11,21 +11,17 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
 
-
 #[Route('/api/items', name: 'api_items_')]
 class ItemController extends AbstractController
 {
     public function __construct(private EntityManagerInterface $em) {}
 
-    /* ──────────────────────────────────────────────
-     * PUBLIC: GET /api/items
-     * ────────────────────────────────────────────── */
     #[Route('', name: 'list', methods: ['GET'])]
     public function list(): JsonResponse
     {
         $items = $this->em->getRepository(Item::class)
             ->createQueryBuilder('i')
-            ->orderBy('i.importanceLevel', 'ASC')   // optional → recommended → critical
+            ->orderBy('i.importanceLevel', 'ASC')
             ->getQuery()
             ->getResult();
 
@@ -33,15 +29,12 @@ class ItemController extends AbstractController
             'id'              => $i->getId(),
             'name'            => $i->getName(),
             'description'     => $i->getDescription(),
-            'importanceLevel' => $i->getImportanceLevel(),
+            'important'       => $i->isImportant(),
         ], $items);
 
         return $this->json($data);
     }
 
-    /* ──────────────────────────────────────────────
-     * ADMIN: POST /api/items
-     * ────────────────────────────────────────────── */
     #[Route('', name: 'create', methods: ['POST'])]
     public function create(Request $request): JsonResponse
     {
@@ -54,8 +47,9 @@ class ItemController extends AbstractController
 
         $item = (new Item())
             ->setName($d['name'])
-            ->setDescription($d['description'] ?? null)
-            ->setImportanceLevel($d['importanceLevel'] ?? 'optional');
+            ->setImportant(!empty($d['important']));
+
+        if (isset($d['important'])) $item->setImportant($d['important']);
 
         $this->em->persist($item);
         $this->em->flush();
@@ -66,13 +60,11 @@ class ItemController extends AbstractController
                 'id'              => $item->getId(),
                 'name'            => $item->getName(),
                 'importanceLevel' => $item->getImportanceLevel(),
+                'important'       => $item->isImportant(),
             ],
         ], 201);
     }
 
-    /* ──────────────────────────────────────────────
-     * ADMIN: PATCH /api/items/{id}
-     * ────────────────────────────────────────────── */
     #[Route('/{id}', name: 'update', methods: ['PATCH'])]
     public function update(Item $item, Request $request): JsonResponse
     {
@@ -82,15 +74,13 @@ class ItemController extends AbstractController
         if (isset($d['name']))            $item->setName($d['name']);
         if (array_key_exists('description', $d)) $item->setDescription($d['description']);
         if (isset($d['importanceLevel'])) $item->setImportanceLevel($d['importanceLevel']);
+        if (isset($d['important']))       $item->setImportant($d['important']);
 
         $this->em->flush();
 
         return $this->json(['message' => 'Item updated']);
     }
 
-    /* ──────────────────────────────────────────────
-     * ADMIN: DELETE /api/items/{id}
-     * ────────────────────────────────────────────── */
     #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
     public function delete(Item $item): JsonResponse
     {
@@ -100,11 +90,6 @@ class ItemController extends AbstractController
 
         return $this->json(['message' => 'Item deleted']);
     }
-
-    /* ──────────────────────────────────────────────
-     * USER:  POST /api/items/{itemId}/toggle/{tripId}
-     *        → поміняти “взяв / не взяв” у конкретній подорожі
-     * ────────────────────────────────────────────── */
 
     #[Route('/{itemId}/toggle/{tripId}', name: 'toggle', methods: ['POST'])]
     public function toggleTaken(int $itemId, int $tripId): JsonResponse
@@ -138,5 +123,4 @@ class ItemController extends AbstractController
 
         return $this->json(['taken' => $ti->isTaken()]);
     }
-
 }
