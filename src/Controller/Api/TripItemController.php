@@ -26,7 +26,13 @@ class TripItemController extends AbstractController
         }
 
         $all = $this->em->getRepository(Item::class)
-            ->findBy([], ['importanceLevel'=>'ASC']);
+            ->createQueryBuilder('i')
+            ->orderBy('i.important', 'DESC')         // 1) важливі зверху
+            ->addOrderBy('i.name', 'ASC')            // 3) назва
+            ->getQuery()
+            ->getResult();
+
+
 
         $tis = $this->em->getRepository(TripItem::class)
             ->findBy(['trip'=>$trip]);
