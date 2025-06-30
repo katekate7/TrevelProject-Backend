@@ -84,9 +84,8 @@ class ItemRequestController extends AbstractController
 
         if ($action === 'approve') {
             $item = (new Item())
-                ->setName($ir->getName())
-                ->setImportanceLevel($data['importanceLevel'] ?? 'optional');
-            $this->em->persist($item);
+                ->setName($ir->getName());
+                $this->em->persist($item);
             $ir->setStatus('approved');
         } else {
             $ir->setStatus('rejected');

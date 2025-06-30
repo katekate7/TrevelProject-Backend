@@ -21,7 +21,6 @@ class ItemController extends AbstractController
     {
         $items = $this->em->getRepository(Item::class)
             ->createQueryBuilder('i')
-            ->orderBy('i.importanceLevel', 'ASC')
             ->getQuery()
             ->getResult();
 
@@ -72,7 +71,6 @@ class ItemController extends AbstractController
 
         if (isset($d['name']))            $item->setName($d['name']);
         if (array_key_exists('description', $d)) $item->setDescription($d['description']);
-        if (isset($d['importanceLevel'])) $item->setImportanceLevel($d['importanceLevel']);
         if (isset($d['important']))       $item->setImportant($d['important']);
 
         $this->em->flush();
