@@ -24,9 +24,6 @@ class Item
     #[ORM\Column(type: 'boolean', options: ['default' => false])]
     private bool $important = false;
 
-    #[ORM\Column(type: 'string', length: 20, options: ['default' => 'optional'])]
-    private string $importanceLevel = 'optional';
-
     #[ORM\OneToMany(mappedBy: 'item', targetEntity: TripItem::class, cascade: ['persist', 'remove'])]
     private Collection $tripItems;
 
@@ -70,17 +67,6 @@ class Item
     public function setImportant(bool $important): self
     {
         $this->important = $important;
-        return $this;
-    }
-
-    public function getImportanceLevel(): string
-    {
-        return $this->importanceLevel;
-    }
-
-    public function setImportanceLevel(string $importanceLevel): self
-    {
-        $this->importanceLevel = $importanceLevel;
         return $this;
     }
 
