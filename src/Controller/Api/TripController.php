@@ -278,4 +278,46 @@ class TripController extends AbstractController
             ]],
         ];
     }
+    #[Route('/{id<\d+>}', name: 'update_dates', methods: ['PATCH'])]
+    public function updateDates(
+        int $id,
+        Request $request,
+        EntityManagerInterface $em
+    ): JsonResponse
+    {
+        // 1) знаходимо поїздку
+        $trip = $this->tripRepo->find($id);
+        if (!$trip || $trip->getUser() !== $this->getUser()) {
+            return $this->json(['error' => 'Поїздку не знайдено'], 404);
+        }
+
+        // 2) валідуємо body
+        $data = json_decode($request->getContent(), true) ?? [];
+        if (empty($data['startDate']) || empty($data['endDate'])) {
+            return $this->json(['error' => 'startDate і endDate обовʼязкові'], 400);
+        }
+
+        try {
+            $trip->setStartDate(new \DateTimeImmutable($data['startDate']));
+            $trip->setEndDate  (new \DateTimeImmutable($data['endDate']));
+        } catch (\Throwable) {
+            return $this->json(['error' => 'Неправильний формат дати'], 400);
+        }
+
+        $em->flush();                    // ← дати збережені
+
+        // 3) одразу оновлюємо прогноз (використовуємо вже наявний endpoint)
+        //    можемо викликати внутрішньо той самий метод, аби не плодити код:
+        $this->forward(__CLASS__.'::updateWeather', ['id' => $id]);
+
+        // 4) повертаємо оновлений об'єкт
+        return $this->json([
+            'id'        => $trip->getId(),
+            'city'      => $trip->getCity(),
+            'country'   => $trip->getCountry(),
+            'startDate' => $trip->getStartDate()->format('Y-m-d'),
+            'endDate'   => $trip->getEndDate()->format('Y-m-d'),
+        ]);
+    }
+
 }
