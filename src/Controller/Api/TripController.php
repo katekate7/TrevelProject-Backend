@@ -34,9 +34,6 @@ class TripController extends AbstractController
         $this->tripRepo = $tripRepo;
     }
 
-    /* -------------------------------------------------------------- */
-    /*                   ≡   С П И С О К   П О Ї З Д О К             */
-    /* -------------------------------------------------------------- */
     #[Route('', name: 'list', methods: ['GET'])]
     #[IsGranted('IS_AUTHENTICATED_FULLY')]
     public function list(): JsonResponse
@@ -53,6 +50,105 @@ class TripController extends AbstractController
         ], $trips);
 
         return $this->json($data);
+    }
+
+    #[Route('/{id<\d+>}', name: 'delete', methods: ['DELETE'])]
+    public function deleteTrip(
+        int $id,
+        EntityManagerInterface $em
+    ): JsonResponse {
+        $trip = $this->tripRepo->find($id);
+        if (!$trip || $trip->getUser() !== $this->getUser()) {
+            return $this->json(
+                ['error' => 'Поїздку не знайдено'],
+                Response::HTTP_NOT_FOUND
+            );
+        }
+
+        $em->remove($trip);
+        $em->flush();
+
+        // Повертаємо порожній JSON з кодом 204
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
+    #[Route('/{id<\d+>}', name: 'get', methods: ['GET'])]
+    public function getTrip(int $id, EntityManagerInterface $em): JsonResponse
+    {
+        $trip = $this->tripRepo->find($id);
+        if (!$trip || $trip->getUser() !== $this->getUser()) {
+            return $this->json(['error' => 'Поїздку не знайдено'], 404);
+        }
+
+        $wikiDesc = null;
+        $wikiImageUrl = null;
+        try {
+            $resp = $this->http->request(
+                'GET',
+                'https://en.wikipedia.org/api/rest_v1/page/summary/' . urlencode($trip->getCity())
+            );
+            if ($resp->getStatusCode() === 200) {
+                $wiki = $resp->toArray();
+                $wikiDesc     = $wiki['extract'] ?? null;
+                $wikiImageUrl = $wiki['thumbnail']['source'] ?? null;
+            }
+        } catch (\Exception) {}
+
+        return $this->json([
+            'id'          => $trip->getId(),
+            'country'     => $trip->getCountry(),
+            'city'        => $trip->getCity(),
+            'startDate'   => $trip->getStartDate()->format('Y-m-d'),
+            'endDate'     => $trip->getEndDate()->format('Y-m-d'),
+            'description' => $trip->getDescription() ?? $wikiDesc,
+            'imageUrl'    => $trip->getImageUrl()    ?? $wikiImageUrl,
+        ], 200);
+    }
+
+    #[Route('/{id}/sightseeings', name: 'sightseeings_update', methods: ['PATCH'])]
+    public function updateSightseeings(int $id, Request $request, EntityManagerInterface $em): JsonResponse
+    {
+        $trip = $this->tripRepo->find($id);
+        if (!$trip || $trip->getUser() !== $this->getUser()) {
+            return $this->json(['error' => 'Поїздку не знайдено'], 404);
+        }
+
+        $data   = json_decode($request->getContent(), true);
+        $titles = $data['titles'] ?? null;
+        if (!is_array($titles) || empty($titles)) {
+            return $this->json(['error' => 'titles must be a non-empty array'], 400);
+        }
+
+        $clean = array_map(fn($t) => trim(strip_tags($t)), $titles);
+        $trip->setSightseeings(implode(', ', $clean));
+        $em->flush();
+
+        return $this->json(['saved' => true], 200);
+    }
+
+
+    #[Route('/add', name: 'add', methods: ['POST'])]
+    public function addTrip(Request $request, EntityManagerInterface $em): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true) ?? [];
+
+        foreach (['country', 'city', 'startDate', 'endDate'] as $field) {
+            if (empty($data[$field])) {
+                return $this->json(['error' => "Missing field: $field"], 400);
+            }
+        }
+
+        $trip = (new Trip())
+            ->setUser($this->getUser())
+            ->setCountry($data['country'])
+            ->setCity($data['city'])
+            ->setStartDate(new \DateTimeImmutable($data['startDate']))
+            ->setEndDate(new \DateTimeImmutable($data['endDate']));
+
+        $em->persist($trip);
+        $em->flush();
+
+        return $this->json(['id' => $trip->getId()], 201);
     }
 
     /* --------------------------------------------------------------------- */
@@ -118,6 +214,32 @@ class TripController extends AbstractController
         ]);
     }
 
+    #[Route('/{id}/route', name: 'route_get', methods: ['GET'])]
+    public function getRoute(int $id, EntityManagerInterface $em): JsonResponse
+    {
+        $trip = $this->tripRepo->find($id);
+        if (!$trip || $trip->getUser() !== $this->getUser()) {
+            return $this->json(['error' => 'Поїздку не знайдено'], 404);
+        }
+
+        $route = $trip->getRoute();
+        if (!$route) {
+            return $this->json(['error' => 'Route not found'], 404);
+        }
+
+        $wps = array_map(fn($w) => [
+            'id'    => $w->getId(),
+            'title' => $w->getTitle(),
+            'lat'   => $w->getLat(),
+            'lng'   => $w->getLng(),
+        ], $route->getWaypoints()->toArray());
+
+        return $this->json([
+            'id'        => $route->getId(),
+            'tripId'    => $trip->getId(),
+            'waypoints' => $wps,
+        ], 200);
+    }
     /* --------------------------------------------------------------------- */
     /*                     ≡   О Т Р И М А Н Н Я   П О Г О Д И               */
     /* --------------------------------------------------------------------- */
