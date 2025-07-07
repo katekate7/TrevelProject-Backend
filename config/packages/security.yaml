@@ -37,5 +37,8 @@ security:
 
     access_control:
         - { path: ^/api/users/register$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/users/forgot-password$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/users/reset-password-token/, roles: PUBLIC_ACCESS }
         - { path: ^/api/login$,            roles: PUBLIC_ACCESS }
+        - { path: ^/api/cities$,           roles: PUBLIC_ACCESS }
         - { path: ^/api,                   roles: IS_AUTHENTICATED_FULLY }
