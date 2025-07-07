@@ -63,6 +63,49 @@ class UserController extends AbstractController
         return $this->json(['message' => 'Registered'], 201);
     }
 
+    #[Route('/forgot-password', name: 'forgot_password', methods: ['POST'])]
+    public function forgotPassword(Request $req): JsonResponse
+    {
+        $data = json_decode($req->getContent(), true) ?: [];
+        if (empty($data['email'])) {
+            return $this->json(['error' => 'Email is required'], 400);
+        }
+
+        /** @var User|null $user */
+        $user = $this->em->getRepository(User::class)->findOneBy(['email' => $data['email']]);
+        
+        // Always return success message for security (don't reveal if email exists)
+        if (!$user) {
+            return $this->json(['message' => 'Лист із лінком надіслано']);
+        }
+
+        // Створюємо запит на відновлення пароля
+        $pr = new PasswordResetRequest($user);
+        $this->em->persist($pr);
+        $this->em->flush();
+
+        // Відправка листа
+        $resetLink = sprintf(
+            '%s/reset-password/%s',
+            $_ENV['APP_FRONTEND_URL'] ?? 'http://localhost:5177',
+            $pr->getToken()
+        );
+
+        $email = (new TemplatedEmail())
+            ->from(new Address('katrinper6@gmail.com', 'Travel App Support'))
+            ->to($user->getEmail())
+            ->subject('Відновлення пароля')
+            ->htmlTemplate('emails/reset_password.html.twig')
+            ->context([
+                'username'  => $user->getUsername(),
+                'resetLink' => $resetLink,
+            ]);
+
+        $this->mailer->send($email);
+
+        return $this->json(['message' => 'Лист із лінком надіслано']);
+    }
+
     #[Route('/create-admin', name: 'create_admin', methods: ['POST'])]
     public function createAdmin(Request $req): JsonResponse
     {
@@ -157,12 +200,12 @@ class UserController extends AbstractController
         // Відправка листа
         $resetLink = sprintf(
             '%s/reset-password/%s',
-            $_ENV['APP_FRONTEND_URL'] ?? 'http://localhost:5173',
+            $_ENV['APP_FRONTEND_URL'] ?? 'http://localhost:5177',
             $pr->getToken()
         );
 
         $email = (new TemplatedEmail())
-            ->from(new Address('no-reply@yourapp.com', 'Your App'))
+            ->from(new Address('katrinper6@gmail.com', 'Travel App Support'))
             ->to($user->getEmail())
             ->subject('Відновлення пароля')
             ->htmlTemplate('emails/reset_password.html.twig')
@@ -205,5 +248,32 @@ class UserController extends AbstractController
         return $this->json(['id'=>$u->getId(), 'role'=>$u->getRole()], 201);
     }
 
+    #[Route('/reset-password-token/{token}', name: 'reset_password_with_token', methods: ['POST'])]
+    public function resetPasswordWithToken(string $token, Request $req): JsonResponse
+    {
+        $data = json_decode($req->getContent(), true) ?: [];
+        if (empty($data['password'])) {
+            return $this->json(['error' => 'Missing password'], 400);
+        }
+
+        // Find the password reset request using repository method
+        $passwordResetRequest = $this->em->getRepository(PasswordResetRequest::class)
+            ->findValidToken($token);
+
+        if (!$passwordResetRequest) {
+            return $this->json(['error' => 'Invalid or expired token'], 404);
+        }
+
+        // Reset the password
+        $user = $passwordResetRequest->getUser();
+        $hashedPassword = $this->hasher->hashPassword($user, $data['password']);
+        $user->setPassword($hashedPassword);
+
+        // Remove the used token
+        $this->em->remove($passwordResetRequest);
+        $this->em->flush();
+
+        return $this->json(['message' => 'Password has been reset successfully']);
+    }
 
 }
