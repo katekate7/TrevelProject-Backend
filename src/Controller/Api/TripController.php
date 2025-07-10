@@ -100,9 +100,10 @@ class TripController extends AbstractController
             'city'        => $trip->getCity(),
             'startDate'   => $trip->getStartDate()->format('Y-m-d'),
             'endDate'     => $trip->getEndDate()->format('Y-m-d'),
-            'description' => $trip->getDescription() ?? $wikiDesc,
-            'imageUrl'    => $trip->getImageUrl()    ?? $wikiImageUrl,
+            'description' => $wikiDesc,
+            'imageUrl'    => $wikiImageUrl,
         ], 200);
+
     }
 
     #[Route('/{id}/sightseeings', name: 'sightseeings_update', methods: ['PATCH'])]
