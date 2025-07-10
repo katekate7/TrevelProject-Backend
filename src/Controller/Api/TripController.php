@@ -182,7 +182,7 @@ class TripController extends AbstractController
         ]);
 
         if ($resp->getStatusCode() !== 200) {
-            return $this->json(['error' => 'Не вдалося отримати прогноз'], 502);
+            return $this->json(['error' => 'It was not possible to make the forecast'], 502);
         }
 
         $raw  = $resp->toArray()['daily'];
@@ -199,7 +199,6 @@ class TripController extends AbstractController
         $weather
             ->setForecast($days)
             ->setTemperature($today['temp']['day'])
-            ->setHumidity(null) // Open-Meteo не повертає humidity
             ->setWeatherDescription($today['weather'][0]['description'])
             ->setUpdatedAt(new \DateTimeImmutable());
 
@@ -208,7 +207,6 @@ class TripController extends AbstractController
         return $this->json([
             'updatedAt'   => $weather->getUpdatedAt()->format('Y-m-d H:i:s'),
             'temperature' => $weather->getTemperature(),
-            'humidity'    => $weather->getHumidity(),
             'description' => $weather->getWeatherDescription(),
             'forecast'    => $days,
         ]);

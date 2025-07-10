@@ -19,7 +19,7 @@ class Place
     #[ORM\JoinColumn(nullable:false, onDelete:"CASCADE")]
     private ?Trip $trip = null;
 
-    #[ORM\Column(type:"string", length:255)]
+    #[ORM\Column(type:"string", length:100)]
     private string $name;
 
     #[ORM\Column(type:"float")]

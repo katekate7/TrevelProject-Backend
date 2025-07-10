@@ -73,7 +73,9 @@ class TripItemController extends AbstractController
             $ti = (new TripItem())
                 ->setTrip($trip)
                 ->setItem($item)
-                ->setChecked(true);
+                ->setChecked(true)
+                ->setAddedBy($this->getUser());
+
             $this->em->persist($ti);
         } else {
             $ti->setChecked(!$ti->isChecked());

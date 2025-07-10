@@ -15,11 +15,8 @@ class Item
     #[ORM\Column(type: 'integer')]
     private ?int $id = null;
 
-    #[ORM\Column(type: 'string', length: 255, unique: true)]
+    #[ORM\Column(type: 'string', length: 100, unique: true)]
     private string $name;
-
-    #[ORM\Column(type: 'text', nullable: true)]
-    private ?string $description = null;
 
     #[ORM\Column(type: 'boolean', options: ['default' => false])]
     private bool $important = false;
@@ -45,17 +42,6 @@ class Item
     public function setName(string $name): self
     {
         $this->name = $name;
-        return $this;
-    }
-
-    public function getDescription(): ?string
-    {
-        return $this->description;
-    }
-
-    public function setDescription(?string $description): self
-    {
-        $this->description = $description;
         return $this;
     }
 
