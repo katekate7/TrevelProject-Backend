@@ -17,7 +17,7 @@ class ItemRequest                       // ← пишемо ТАК САМО, я�
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ?User $user = null;
 
-    #[ORM\Column(type: 'string', length: 255)]
+    #[ORM\Column(type: 'string', length: 100)]
     private string $name;
 
     #[ORM\Column(type: 'string', length: 20, options: ['default' => 'pending'])]

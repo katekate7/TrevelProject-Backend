@@ -24,6 +24,17 @@ class TripItem
     #[ORM\Column(type: 'boolean', options: ["default" => false])]
     private bool $isChecked = false;
 
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+
+    private ?User $addedBy = null;
+
+    public function getAddedBy(): ?User { return $this->addedBy; }
+    public function setAddedBy(?User $user): static {
+        $this->addedBy = $user;
+        return $this;
+    }
+
     public function getId(): ?int
     {
         return $this->id;

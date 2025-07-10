@@ -20,9 +20,6 @@ class Weather
     #[ORM\Column(type: 'float', nullable: true)]
     private ?float $temperature = null;
 
-    #[ORM\Column(type: 'integer', nullable: true)]
-    private ?int $humidity = null;
-
     #[ORM\Column(type: 'string', length: 255, nullable: true)]
     private ?string $weatherDescription = null;
 
@@ -56,17 +53,6 @@ class Weather
     public function setTemperature(?float $temperature): static
     {
         $this->temperature = $temperature;
-        return $this;
-    }
-
-    public function getHumidity(): ?int
-    {
-        return $this->humidity;
-    }
-
-    public function setHumidity(?int $humidity): static
-    {
-        $this->humidity = $humidity;
         return $this;
     }
 

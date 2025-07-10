@@ -18,25 +18,17 @@ class Trip
     #[Groups(['trip:list','trip:read'])]
     private ?int $id = null;
 
-    #[ORM\Column(type: 'string', length: 255)]
+    #[ORM\Column(type: 'string', length: 50)]
     #[Groups(['trip:list','trip:read'])]
     private string $city;
 
-    #[ORM\Column(type: 'string', length: 255)]
+    #[ORM\Column(type: 'string', length: 50)]
     #[Groups(['trip:list','trip:read'])]
     private string $country;
 
     #[ORM\Column(type: 'datetime_immutable', options: ['default' => 'CURRENT_TIMESTAMP'])]
     #[Groups(['trip:list','trip:read'])]
     private \DateTimeImmutable $createdAt;
-
-    #[ORM\Column(type: 'text', nullable: true)]
-    #[Groups(['trip:read'])]
-    private ?string $description = null;
-
-    #[ORM\Column(type: 'text', nullable: true)]
-    #[Groups(['trip:read'])]
-    private ?string $imageUrl = null;
 
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     #[Groups(['trip:read'])]
@@ -57,9 +49,6 @@ class Trip
     #[ORM\OneToMany(mappedBy: 'trip', targetEntity: Place::class, cascade: ['persist','remove'], orphanRemoval: true)]
     private Collection $places;
 
-    #[ORM\OneToMany(mappedBy: 'trip', targetEntity: Trajet::class, cascade: ['persist','remove'], orphanRemoval: true)]
-    private Collection $trajets;
-
     #[ORM\OneToOne(mappedBy: 'trip', targetEntity: Weather::class, cascade: ['persist','remove'])]
     #[Groups(['trip:read'])]
     private ?Weather $weather = null;
@@ -68,7 +57,6 @@ class Trip
     {
         $this->createdAt = new \DateTimeImmutable();
         $this->places = new ArrayCollection();
-        $this->trajets = new ArrayCollection();
 
     }
 
@@ -83,12 +71,6 @@ class Trip
     public function setCountry(string $c): static { $this->country = $c; return $this; }
 
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
-
-    public function getDescription(): ?string { return $this->description; }
-    public function setDescription(?string $d): static { $this->description = $d; return $this; }
-
-    public function getImageUrl(): ?string { return $this->imageUrl; }
-    public function setImageUrl(?string $u): static { $this->imageUrl = $u; return $this; }
 
     public function getStartDate(): ?\DateTimeImmutable { return $this->startDate; }
     public function setStartDate(?\DateTimeImmutable $d): static { $this->startDate = $d; return $this; }
@@ -108,14 +90,5 @@ class Trip
     public function getPlaces(): Collection { return $this->places; }
     public function addPlace(Place $p): self { if(!$this->places->contains($p)){ $this->places->add($p); $p->setTrip($this); } return $this; }
     public function removePlace(Place $p): self { $this->places->removeElement($p); return $this; }
-
-    public function getTrajets(): Collection { return $this->trajets; }
-    public function addTrajet(Trajet $t): self { if(!$this->trajets->contains($t)){ $this->trajets->add($t); $t->setTrip($this);} return $this; }
-    public function removeTrajet(Trajet $t): self { $this->trajets->removeElement($t); return $this; }
-
-    public function getLastTrajet(): ?Trajet
-    {
-        return $this->trajets->isEmpty() ? null : $this->trajets->last();
-    }
 
 }

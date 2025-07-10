@@ -27,7 +27,6 @@ class ItemController extends AbstractController
         $data = array_map(fn(Item $i) => [
             'id'              => $i->getId(),
             'name'            => $i->getName(),
-            'description'     => $i->getDescription(),
             'important'       => $i->isImportant(),
         ], $items);
 
@@ -70,7 +69,6 @@ class ItemController extends AbstractController
         $d = json_decode($request->getContent(), true);
 
         if (isset($d['name']))            $item->setName($d['name']);
-        if (array_key_exists('description', $d)) $item->setDescription($d['description']);
         if (isset($d['important']))       $item->setImportant($d['important']);
 
         $this->em->flush();
