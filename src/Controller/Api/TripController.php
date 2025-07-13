@@ -106,6 +106,42 @@ class TripController extends AbstractController
 
     }
 
+    #[Route('/{id<\d+>}', name: 'update', methods: ['PATCH'])]
+    public function updateTrip(
+        int $id,
+        Request $request,
+        EntityManagerInterface $em
+    ): JsonResponse {
+        $trip = $this->tripRepo->find($id);
+
+        if (!$trip || $trip->getUser() !== $this->getUser()) {
+            return $this->json(['error' => 'Поїздку не знайдено'], 404);
+        }
+
+        $data = json_decode($request->getContent(), true);
+        if (!$data) {
+            return $this->json(['error' => 'Неправильний формат JSON'], 400);
+        }
+
+        if (isset($data['startDate'])) {
+            $trip->setStartDate(new \DateTimeImmutable($data['startDate']));
+        }
+
+        if (isset($data['endDate'])) {
+            $trip->setEndDate(new \DateTimeImmutable($data['endDate']));
+        }
+
+        $em->flush();
+
+        return $this->json([
+            'id'        => $trip->getId(),
+            'country'   => $trip->getCountry(),
+            'city'      => $trip->getCity(),
+            'startDate' => $trip->getStartDate()->format('Y-m-d'),
+            'endDate'   => $trip->getEndDate()->format('Y-m-d'),
+        ]);
+    }
+
     #[Route('/{id}/sightseeings', name: 'sightseeings_update', methods: ['PATCH'])]
     public function updateSightseeings(int $id, Request $request, EntityManagerInterface $em): JsonResponse
     {
