@@ -95,7 +95,6 @@ class ItemRequestController extends AbstractController
         return $this->json(['message' => "Request $action"]);
     }
 
-    /* ADMIN — DELETE */
     #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
     public function delete(int $id): JsonResponse
     {
