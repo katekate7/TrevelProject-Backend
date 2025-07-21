@@ -26,7 +26,7 @@ class TripIntegrationTest extends KernelTestCase
         $user->setEmail('integration@test.com');
         $user->setUsername('testuser');
         $user->setPassword('$2y$13$hashedpassword'); // Hashed password
-        $user->setRoles(['ROLE_USER']);
+        $user->setRole('user'); // Fixed: use setRole() instead of setRoles()
         
         $this->entityManager->persist($user);
         $this->entityManager->flush();
@@ -64,7 +64,7 @@ class TripIntegrationTest extends KernelTestCase
         $user->setEmail('relationship@test.com');
         $user->setUsername('relationuser');
         $user->setPassword('$2y$13$hashedpassword');
-        $user->setRoles(['ROLE_USER']);
+        $user->setRole('user'); // Fixed: use setRole() instead of setRoles()
         
         $this->entityManager->persist($user);
 
@@ -111,7 +111,7 @@ class TripIntegrationTest extends KernelTestCase
         $user->setEmail('update@test.com');
         $user->setUsername('updateuser');
         $user->setPassword('$2y$13$hashedpassword');
-        $user->setRoles(['ROLE_USER']);
+        $user->setRole('user'); // Fixed: use setRole() instead of setRoles()
         
         $this->entityManager->persist($user);
 
@@ -150,7 +150,7 @@ class TripIntegrationTest extends KernelTestCase
         $user->setEmail('delete@test.com');
         $user->setUsername('deleteuser');
         $user->setPassword('$2y$13$hashedpassword');
-        $user->setRoles(['ROLE_USER']);
+        $user->setRole('user'); // Fixed: use setRole() instead of setRoles()
         
         $this->entityManager->persist($user);
 
@@ -184,7 +184,7 @@ class TripIntegrationTest extends KernelTestCase
         $user->setEmail('query@test.com');
         $user->setUsername('queryuser');
         $user->setPassword('$2y$13$hashedpassword');
-        $user->setRoles(['ROLE_USER']);
+        $user->setRole('user'); // Fixed: use setRole() instead of setRoles()
         
         $this->entityManager->persist($user);
 
@@ -238,12 +238,19 @@ class TripIntegrationTest extends KernelTestCase
 
     protected function tearDown(): void
     {
-        // Clean up database
-        $this->entityManager->createQuery('DELETE FROM App\Entity\Trip')->execute();
-        $this->entityManager->createQuery('DELETE FROM App\Entity\User')->execute();
+        // Clean up database - but only if entity manager exists
+        if (isset($this->entityManager)) {
+            try {
+                $this->entityManager->createQuery('DELETE FROM App\Entity\Trip')->execute();
+                $this->entityManager->createQuery('DELETE FROM App\Entity\User')->execute();
+            } catch (\Exception $e) {
+                // Ignore cleanup errors
+            }
+            
+            $this->entityManager->close();
+        }
         
         parent::tearDown();
-        $this->entityManager->close();
-        $this->entityManager = null;
+        // Don't set to null - PHP 8+ doesn't allow null for typed properties
     }
 }
