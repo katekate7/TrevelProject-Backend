@@ -60,7 +60,7 @@ class TripController extends AbstractController
         $trip = $this->tripRepo->find($id);
         if (!$trip || $trip->getUser() !== $this->getUser()) {
             return $this->json(
-                ['error' => 'Поїздку не знайдено'],
+                ['error' => 'Trip not found'],
                 Response::HTTP_NOT_FOUND
             );
         }
@@ -77,7 +77,7 @@ class TripController extends AbstractController
     {
         $trip = $this->tripRepo->find($id);
         if (!$trip || $trip->getUser() !== $this->getUser()) {
-            return $this->json(['error' => 'Поїздку не знайдено'], 404);
+            return $this->json(['error' => 'Trip not found'], 404);
         }
 
         $wikiDesc = null;
@@ -115,12 +115,12 @@ class TripController extends AbstractController
         $trip = $this->tripRepo->find($id);
 
         if (!$trip || $trip->getUser() !== $this->getUser()) {
-            return $this->json(['error' => 'Поїздку не знайдено'], 404);
+            return $this->json(['error' => 'Trip not found'], 404);
         }
 
         $data = json_decode($request->getContent(), true);
         if (!$data) {
-            return $this->json(['error' => 'Неправильний формат JSON'], 400);
+            return $this->json(['error' => 'Invalid JSON format'], 400);
         }
 
         if (isset($data['startDate'])) {
@@ -147,7 +147,7 @@ class TripController extends AbstractController
     {
         $trip = $this->tripRepo->find($id);
         if (!$trip || $trip->getUser() !== $this->getUser()) {
-            return $this->json(['error' => 'Поїздку не знайдено'], 404);
+            return $this->json(['error' => 'Trip not found'], 404);
         }
 
         $data   = json_decode($request->getContent(), true);
@@ -197,13 +197,13 @@ class TripController extends AbstractController
         // 1) Перевіряємо доступ до поїздки
         $trip = $this->tripRepo->find($id);
         if (!$trip || $trip->getUser() !== $this->getUser()) {
-            return $this->json(['error' => 'Поїздку не знайдено'], 404);
+            return $this->json(['error' => 'Trip not found'], 404);
         }
 
         // 2) Геокодуємо місто через Nominatim
         $coord = $this->geocodeCity($trip->getCity(), $trip->getCountry());
         if (!$coord) {
-            return $this->json(['error' => 'Не вдалося визначити координати'], 502);
+            return $this->json(['error' => 'Could not determine coordinates'], 502);
         }
 
         // 3) Запит до Open-Meteo (до 16 днів)
@@ -254,7 +254,7 @@ class TripController extends AbstractController
     {
         $trip = $this->tripRepo->find($id);
         if (!$trip || $trip->getUser() !== $this->getUser()) {
-            return $this->json(['error' => 'Поїздку не знайдено'], 404);
+            return $this->json(['error' => 'Trip not found'], 404);
         }
 
         $route = $trip->getRoute();
@@ -283,7 +283,7 @@ class TripController extends AbstractController
     {
         $trip = $this->tripRepo->find($id);
         if (!$trip || $trip->getUser() !== $this->getUser()) {
-            return $this->json(['error' => 'Поїздку не знайдено'], 404);
+            return $this->json(['error' => 'Trip not found'], 404);
         }
 
         $weather = $trip->getWeather();
