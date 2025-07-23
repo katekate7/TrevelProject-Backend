@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Welcome to Travel App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #4F46E5;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .content {
+            background-color: #f9f9f9;
+            padding: 30px;
+            border-radius: 0 0 8px 8px;
+        }
+        .button {
+            display: inline-block;
+            background-color: #4F46E5;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .security-note {
+            background-color: #EFF6FF;
+            border-left: 4px solid #3B82F6;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Welcome to Travel App!</h1>
+    </div>
+    
+    <div class="content">
+        <h2>Hello {{ username }}!</h2>
+        
+        <p>Your {{ role }} account has been created successfully. You now have access to our travel planning platform.</p>
+        
+        <div class="security-note">
+            <strong>🔐 Security Notice:</strong> For your security, no password was set during account creation. Please use the link below to create your secure password.
+        </div>
+        
+        <p>To complete your account setup and choose your password, please click the button below:</p>
+        
+        <a href="{{ resetLink }}" class="button">Set Your Password</a>
+        
+        <p>Or copy and paste this link into your browser:</p>
+        <p style="word-break: break-all; background: #f0f0f0; padding: 10px; border-radius: 4px;">{{ resetLink }}</p>
+        
+        <p><strong>This link will expire in 1 hour</strong> for security reasons. If you don't set your password within this time, please contact an administrator.</p>
+        
+        {% if role == 'admin' %}
+        <div style="background-color: #FEF3C7; border-left: 4px solid #F59E0B; padding: 15px; margin: 20px 0;">
+            <strong>👑 Administrator Access:</strong> You have been granted administrator privileges. With great power comes great responsibility!
+        </div>
+        {% endif %}
+        
+        <p>Once you've set your password, you can log in and start planning your adventures!</p>
+        
+        <div class="footer">
+            <p>Best regards,<br>The Travel App Team</p>
+            <p><small>If you didn't expect this email, please contact our support team immediately.</small></p>
+        </div>
+    </div>
+</body>
+</html>
