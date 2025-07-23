@@ -76,7 +76,7 @@ class UserController extends AbstractController
         
         // Always return success message for security (don't reveal if email exists)
         if (!$user) {
-            return $this->json(['message' => 'Лист із лінком надіслано']);
+            return $this->json(['message' => 'The email with the link has been sent']);
         }
 
         // Створюємо запит на відновлення пароля
@@ -92,9 +92,9 @@ class UserController extends AbstractController
         );
 
         $email = (new TemplatedEmail())
-            ->from(new Address('katrinper6@gmail.com', 'Travel App Support'))
+            ->from(new Address($_ENV['MAILER_FROM_EMAIL'] ?? 'noreply@travelapp.com', $_ENV['MAILER_FROM_NAME'] ?? 'Travel App Support'))
             ->to($user->getEmail())
-            ->subject('Відновлення пароля')
+            ->subject('Password recovery')
             ->htmlTemplate('emails/reset_password.html.twig')
             ->context([
                 'username'  => $user->getUsername(),
@@ -103,7 +103,7 @@ class UserController extends AbstractController
 
         $this->mailer->send($email);
 
-        return $this->json(['message' => 'Лист із лінком надіслано']);
+        return $this->json(['message' => 'The letter with the link has been sent']);
     }
 
     #[Route('/create-admin', name: 'create_admin', methods: ['POST'])]
@@ -205,9 +205,9 @@ class UserController extends AbstractController
         );
 
         $email = (new TemplatedEmail())
-            ->from(new Address('katrinper6@gmail.com', 'Travel App Support'))
+            ->from(new Address($_ENV['MAILER_FROM_EMAIL'] ?? 'noreply@travelapp.com', $_ENV['MAILER_FROM_NAME'] ?? 'Travel App Support'))
             ->to($user->getEmail())
-            ->subject('Відновлення пароля')
+            ->subject('Password recovery')
             ->htmlTemplate('emails/reset_password.html.twig')
             ->context([
                 'username'  => $user->getUsername(),
@@ -216,7 +216,7 @@ class UserController extends AbstractController
 
         $this->mailer->send($email);
 
-        return $this->json(['message' => 'Лист із лінком надіслано']);
+        return $this->json(['message' => 'The email with the link has been sent']);
     }
     #[Route('', name: 'create', methods: ['POST'])]
     public function create(Request $req): JsonResponse
@@ -224,7 +224,7 @@ class UserController extends AbstractController
         $this->denyAccessUnlessGranted('ROLE_ADMIN');
 
         $d = json_decode($req->getContent(), true) ?? [];
-        foreach (['username', 'email', 'password'] as $f) {
+        foreach (['username', 'email'] as $f) {
             if (empty($d[$f])) {
                 return $this->json(["error"=>"Missing $f"], 400);
             }
@@ -236,16 +236,49 @@ class UserController extends AbstractController
 
         $role = ($d['role'] ?? 'user') === 'admin' ? 'admin' : 'user';
 
+        // Generate a secure random temporary password (will be replaced by reset)
+        $tempPassword = bin2hex(random_bytes(16));
+        
         $u = (new User())
             ->setUsername($d['username'])
             ->setEmail($d['email'])
             ->setRole($role);
-        $u->setPassword($this->hasher->hashPassword($u, $d['password']));
+        $u->setPassword($this->hasher->hashPassword($u, $tempPassword));
 
         $this->em->persist($u);
         $this->em->flush();
 
-        return $this->json(['id'=>$u->getId(), 'role'=>$u->getRole()], 201);
+        // Create password reset request for the new user
+        $pr = new PasswordResetRequest($u);
+        $this->em->persist($pr);
+        $this->em->flush();
+
+        // Send welcome email with password setup link
+        $resetLink = sprintf(
+            '%s/reset-password/%s',
+            $_ENV['APP_FRONTEND_URL'] ?? 'http://localhost:5177',
+            $pr->getToken()
+        );
+
+        $email = (new TemplatedEmail())
+            ->from(new Address($_ENV['MAILER_FROM_EMAIL'] ?? 'noreply@travelapp.com', $_ENV['MAILER_FROM_NAME'] ?? 'Travel App Support'))
+            ->to($u->getEmail())
+            ->subject('Welcome to Travel App - Set Your Password')
+            ->htmlTemplate('emails/welcome_new_user.html.twig')
+            ->context([
+                'username'  => $u->getUsername(),
+                'resetLink' => $resetLink,
+                'role'      => $role,
+                'isNewUser' => true,
+            ]);
+
+        $this->mailer->send($email);
+
+        return $this->json([
+            'id'=>$u->getId(), 
+            'role'=>$u->getRole(),
+            'message'=>'User created successfully. Password setup email sent.'
+        ], 201);
     }
 
     #[Route('/reset-password-token/{token}', name: 'reset_password_with_token', methods: ['POST'])]
