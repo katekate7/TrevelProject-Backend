@@ -1,4 +1,18 @@
 <?php
+/**
+ * Integration test suite for Trip entity database operations.
+ * 
+ * This test class validates trip-related database operations including:
+ * - Trip creation and persistence
+ * - Trip retrieval and data integrity
+ * - User-Trip relationship management
+ * - Database consistency and entity relationships
+ * 
+ * Uses KernelTestCase for database integration testing with Doctrine ORM.
+ * 
+ * @package App\Tests\Integration
+ * @author Travel Project Team
+ */
 
 namespace App\Tests\Integration;
 
@@ -7,21 +21,45 @@ use App\Entity\User;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 
+/**
+ * Integration tests for Trip entity database operations.
+ * 
+ * Tests focus on database persistence, entity relationships,
+ * and data integrity for trip-related operations.
+ */
 class TripIntegrationTest extends KernelTestCase
 {
+    /** @var EntityManagerInterface Database entity manager for test operations */
     private EntityManagerInterface $entityManager;
 
+    /**
+     * Set up test environment before each test.
+     * 
+     * Boots the Symfony kernel and initializes the entity manager
+     * for database operations during testing.
+     */
     protected function setUp(): void
     {
+        // Boot Symfony kernel and get entity manager from container
         $kernel = self::bootKernel();
         $this->entityManager = $kernel->getContainer()
             ->get('doctrine')
             ->getManager();
     }
 
+    /**
+     * Test complete trip creation and retrieval workflow.
+     * 
+     * Verifies that:
+     * - Trip can be created and persisted to database
+     * - All trip properties are saved correctly
+     * - Trip can be retrieved with correct data
+     * - User-Trip relationship is maintained
+     * - Database operations work end-to-end
+     */
     public function testCreateAndRetrieveTrip(): void
     {
-        // Create a test user
+        // Arrange: Create and persist test user
         $user = new User();
         $user->setEmail('integration@test.com');
         $user->setUsername('testuser');
@@ -31,7 +69,7 @@ class TripIntegrationTest extends KernelTestCase
         $this->entityManager->persist($user);
         $this->entityManager->flush();
 
-        // Create a trip
+        // Arrange: Create trip entity with all required properties
         $trip = new Trip();
         $trip->setUser($user)
              ->setCity('Integration Test City')
@@ -39,16 +77,18 @@ class TripIntegrationTest extends KernelTestCase
              ->setStartDate(new \DateTimeImmutable('2025-08-01'))
              ->setEndDate(new \DateTimeImmutable('2025-08-10'));
 
+        // Act: Persist trip to database
         $this->entityManager->persist($trip);
         $this->entityManager->flush();
 
-        // Clear the entity manager to ensure we're fetching from database
+        // Clear entity manager to ensure fresh database fetch
         $this->entityManager->clear();
 
-        // Retrieve and verify
+        // Act: Retrieve trip from database
         $tripRepository = $this->entityManager->getRepository(Trip::class);
         $savedTrip = $tripRepository->find($trip->getId());
         
+        // Assert: Verify all trip data was saved and retrieved correctly
         $this->assertNotNull($savedTrip);
         $this->assertEquals('Integration Test City', $savedTrip->getCity());
         $this->assertEquals('Test Country', $savedTrip->getCountry());
@@ -57,9 +97,18 @@ class TripIntegrationTest extends KernelTestCase
         $this->assertEquals($user->getId(), $savedTrip->getUser()->getId());
     }
 
+    /**
+     * Test User-Trip relationship and multiple trip handling.
+     * 
+     * Verifies that:
+     * - User can have multiple trips
+     * - Trip-User relationship is bidirectional
+     * - Database queries work correctly for relationships
+     * - Data integrity is maintained across entities
+     */
     public function testUserTripRelationship(): void
     {
-        // Create user
+        // Arrange: Create and persist test user
         $user = new User();
         $user->setEmail('relationship@test.com');
         $user->setUsername('relationuser');
@@ -68,7 +117,7 @@ class TripIntegrationTest extends KernelTestCase
         
         $this->entityManager->persist($user);
 
-        // Create multiple trips for the user
+        // Arrange: Create multiple trips for the same user
         $trip1 = new Trip();
         $trip1->setUser($user)
               ->setCity('Paris')
@@ -83,19 +132,22 @@ class TripIntegrationTest extends KernelTestCase
               ->setStartDate(new \DateTimeImmutable('2025-09-01'))
               ->setEndDate(new \DateTimeImmutable('2025-09-10'));
 
+        // Act: Persist all entities
         $this->entityManager->persist($trip1);
         $this->entityManager->persist($trip2);
         $this->entityManager->flush();
 
+        // Clear entity manager to ensure fresh database queries
         $this->entityManager->clear();
 
-        // Test finding trips by user
+        // Act: Test relationship queries
         $tripRepository = $this->entityManager->getRepository(Trip::class);
         $userRepository = $this->entityManager->getRepository(User::class);
         
         $savedUser = $userRepository->find($user->getId());
         $userTrips = $tripRepository->findBy(['user' => $savedUser]);
         
+        // Assert: Verify relationship integrity and trip count
         $this->assertCount(2, $userTrips);
         
         // Verify both trips exist
