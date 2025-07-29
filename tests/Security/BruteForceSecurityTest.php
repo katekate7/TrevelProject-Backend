@@ -1,14 +1,47 @@
 <?php
+/**
+ * Security test suite for brute force attack protection validation.
+ * 
+ * This test class validates brute force attack prevention mechanisms including:
+ * - Multiple failed login attempt handling
+ * - Rate limiting effectiveness
+ * - Account lockout mechanisms
+ * - Security response consistency
+ * - Attack detection and mitigation
+ * 
+ * Critical for protecting user accounts from automated attack attempts
+ * and maintaining authentication security.
+ * 
+ * @package App\Tests\Security
+ * @author Travel Project Team
+ */
 
 namespace App\Tests\Security;
 
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * Security tests for brute force attack protection.
+ * 
+ * Tests the application's ability to detect and mitigate
+ * automated login attempts and credential stuffing attacks.
+ */
 final class BruteForceSecurityTest extends WebTestCase
 {
+    /**
+     * Test protection against brute force login attacks.
+     * 
+     * Verifies that:
+     * - Multiple failed login attempts are handled appropriately
+     * - System maintains consistent response times (no user enumeration)
+     * - Rate limiting or account lockout mechanisms function
+     * - Application doesn't crash under repeated failed attempts
+     * - Security measures don't interfere with legitimate users
+     */
     public function testBruteForceLoginProtection(): void
     {
+        // Arrange: Create test client and user account
         $client = static::createClient();
         
         // First, create a user to attempt brute force against
@@ -18,22 +51,25 @@ final class BruteForceSecurityTest extends WebTestCase
             'password' => 'correctpassword123'
         ];
 
+        // Create the target user account
         $client->request('POST', '/api/users/register', [], [], 
             ['CONTENT_TYPE' => 'application/json'],
             json_encode($userData)
         );
         $this->assertResponseIsSuccessful();
 
-        // Simulate multiple failed login attempts
+        // Act: Simulate multiple failed login attempts (brute force attack)
         $failedAttempts = 0;
         $maxAttempts = 10;
 
         for ($i = 0; $i < $maxAttempts; $i++) {
+            // Prepare login data with incorrect password
             $loginData = [
                 'email' => $userData['email'],
-                'password' => 'wrongpassword' . $i
+                'password' => 'wrongpassword' . $i  // Different wrong password each time
             ];
 
+            // Attempt login with wrong credentials
             $client->request('POST', '/api/auth/login', [], [], 
                 ['CONTENT_TYPE' => 'application/json'],
                 json_encode($loginData)
@@ -41,12 +77,13 @@ final class BruteForceSecurityTest extends WebTestCase
 
             $responseCode = $client->getResponse()->getStatusCode();
             
+            // Count unauthorized responses
             if ($responseCode === Response::HTTP_UNAUTHORIZED) {
                 $failedAttempts++;
             }
 
-            // After several failed attempts, the system should still respond
-            // (even if it implements rate limiting)
+            // Assert: System should handle failed attempts gracefully
+            // Even with rate limiting, responses should be consistent
             $this->assertContains($responseCode, [
                 Response::HTTP_UNAUTHORIZED,  // Normal failed login
                 Response::HTTP_TOO_MANY_REQUESTS,  // Rate limited
