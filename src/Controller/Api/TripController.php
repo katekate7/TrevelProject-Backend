@@ -1,4 +1,38 @@
 <?php
+/**
+ * @fileoverview TripController - API Controller for Trip Management and Weather Integration
+ * 
+ * This controller provides comprehensive trip management functionality including CRUD operations,
+ * weather data integration using Open-Meteo API, and Wikipedia integration for destination
+ * information. It handles user trip planning with date management and location-based services.
+ * 
+ * Features:
+ * - Trip CRUD operations (Create, Read, Update, Delete)
+ * - Weather data integration with Open-Meteo API (free, up to 16 days forecast)
+ * - Geocoding using OpenStreetMap Nominatim for coordinates
+ * - Wikipedia integration for destination descriptions and images
+ * - User-specific trip management with authentication
+ * - Sightseeing management and updates
+ * - Route planning functionality
+ * 
+ * API Endpoints:
+ * - GET /api/trips - List user trips
+ * - GET /api/trips/{id} - Get trip details with Wikipedia data
+ * - POST /api/trips - Create new trip with weather data
+ * - PATCH /api/trips/{id} - Update trip dates
+ * - DELETE /api/trips/{id} - Delete trip
+ * - PATCH /api/trips/{id}/sightseeings - Update trip sightseeings
+ * - GET /api/trips/{id}/route - Get trip route information
+ * 
+ * External APIs:
+ * - Open-Meteo: Weather forecasting (api.open-meteo.com)
+ * - Nominatim: Geocoding service (nominatim.openstreetmap.org)
+ * - Wikipedia: Destination information (en.wikipedia.org/api/rest_v1)
+ * 
+ * @package App\Controller\Api
+ * @author Travel Planner Development Team
+ * @version 1.0.0
+ */
 // src/Controller/Api/TripController.php
 
 namespace App\Controller\Api;
@@ -16,47 +50,96 @@ use Symfony\Component\HttpFoundation\Request;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\IsGranted;
 
 /**
- * TripController – версія з Open-Meteo (до 16 днів, безкоштовно)
- * ---------------------------------------------------------------
- * ▸ Для погодних даних використовуємо api.open-meteo.com.
- * ▸ Сервіс приймає latitude/longitude ⇒ потрібен геокодер.
- *   Беремо Nominatim (OSM) – він також безкоштовний.
+ * TripController - Comprehensive trip management with weather and location services
+ * 
+ * Manages travel trips with integrated weather forecasting using Open-Meteo API,
+ * geocoding with OpenStreetMap Nominatim, and destination information from Wikipedia.
+ * Provides full CRUD operations with user authentication and authorization.
+ * 
+ * Weather Integration:
+ * - Uses Open-Meteo API for free weather forecasting (up to 16 days)
+ * - Requires latitude/longitude coordinates from geocoding service
+ * - Stores weather data in database for offline access
+ * 
+ * Location Services:
+ * - OpenStreetMap Nominatim for geocoding city names to coordinates
+ * - Wikipedia API for destination descriptions and images
+ * - Supports international destinations and multiple languages
  */
 #[Route('/api/trips', name: 'api_trips_')]
 class TripController extends AbstractController
 {
+    /**
+     * @var HttpClientInterface HTTP client for external API calls
+     */
     private HttpClientInterface $http;
-    private TripRepository      $tripRepo;
+    
+    /**
+     * @var TripRepository Repository for trip database operations
+     */
+    private TripRepository $tripRepo;
 
+    /**
+     * Constructor - Injects required services for trip management
+     * 
+     * @param HttpClientInterface $http HTTP client for external API calls
+     * @param TripRepository $tripRepo Repository for trip database operations
+     */
     public function __construct(HttpClientInterface $http, TripRepository $tripRepo)
     {
-        $this->http     = $http;
+        $this->http = $http;
         $this->tripRepo = $tripRepo;
     }
 
+    /**
+     * List all trips for authenticated user
+     * 
+     * Returns a list of all trips belonging to the authenticated user,
+     * ordered by start date (most recent first). Includes basic trip information.
+     * 
+     * @Route("", name="list", methods={"GET"})
+     * @IsGranted("IS_AUTHENTICATED_FULLY")
+     * @return JsonResponse Array of user trips with id, city, country, start/end dates
+     */
     #[Route('', name: 'list', methods: ['GET'])]
     #[IsGranted('IS_AUTHENTICATED_FULLY')]
     public function list(): JsonResponse
     {
-        $user  = $this->getUser();
+        // Get current authenticated user
+        $user = $this->getUser();
+        
+        // Fetch user trips ordered by start date (newest first)
         $trips = $this->tripRepo->findBy(['user' => $user], ['startDate' => 'DESC']);
 
+        // Transform trip entities to JSON-friendly format
         $data = array_map(fn(Trip $t) => [
-            'id'        => $t->getId(),
-            'city'      => $t->getCity(),
-            'country'   => $t->getCountry(),
+            'id' => $t->getId(),
+            'city' => $t->getCity(),
+            'country' => $t->getCountry(),
             'startDate' => $t->getStartDate()?->format('Y-m-d'),
-            'endDate'   => $t->getEndDate()?->format('Y-m-d'),
+            'endDate' => $t->getEndDate()?->format('Y-m-d'),
         ], $trips);
 
         return $this->json($data);
     }
 
+    /**
+     * Delete a specific trip
+     * 
+     * Removes a trip from the database. Only the trip owner can delete their trips.
+     * Returns 204 No Content on successful deletion.
+     * 
+     * @Route("/{id<\d+>}", name="delete", methods={"DELETE"})
+     * @param int $id Trip ID to delete
+     * @param EntityManagerInterface $em Entity manager for database operations
+     * @return JsonResponse Empty response with 204 status or 404 if not found
+     */
     #[Route('/{id<\d+>}', name: 'delete', methods: ['DELETE'])]
     public function deleteTrip(
         int $id,
         EntityManagerInterface $em
     ): JsonResponse {
+        // Find trip and verify ownership
         $trip = $this->tripRepo->find($id);
         if (!$trip || $trip->getUser() !== $this->getUser()) {
             return $this->json(
@@ -65,23 +148,39 @@ class TripController extends AbstractController
             );
         }
 
+        // Remove trip from database
         $em->remove($trip);
         $em->flush();
 
-        // Повертаємо порожній JSON з кодом 204
+        // Return empty JSON response with 204 No Content status
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
 
+    /**
+     * Get detailed trip information with Wikipedia integration
+     * 
+     * Returns comprehensive trip details including Wikipedia description and images
+     * for the destination city. Integrates external APIs for rich content.
+     * 
+     * @Route("/{id<\d+>}", name="get", methods={"GET"})
+     * @param int $id Trip ID to retrieve
+     * @param EntityManagerInterface $em Entity manager for database operations
+     * @return JsonResponse Trip details with Wikipedia description and image
+     */
     #[Route('/{id<\d+>}', name: 'get', methods: ['GET'])]
     public function getTrip(int $id, EntityManagerInterface $em): JsonResponse
     {
+        // Find trip and verify ownership
         $trip = $this->tripRepo->find($id);
         if (!$trip || $trip->getUser() !== $this->getUser()) {
             return $this->json(['error' => 'Trip not found'], 404);
         }
 
+        // Initialize Wikipedia data variables
         $wikiDesc = null;
         $wikiImageUrl = null;
+        
+        // Attempt to fetch Wikipedia information for the destination
         try {
             $resp = $this->http->request(
                 'GET',
@@ -89,56 +188,76 @@ class TripController extends AbstractController
             );
             if ($resp->getStatusCode() === 200) {
                 $wiki = $resp->toArray();
-                $wikiDesc     = $wiki['extract'] ?? null;
-                $wikiImageUrl = $wiki['thumbnail']['source'] ?? null;
+                $wikiDesc = $wiki['extract'] ?? null;  // Short description
+                $wikiImageUrl = $wiki['thumbnail']['source'] ?? null;  // City image
             }
-        } catch (\Exception) {}
+        } catch (\Exception) {
+            // Silently handle Wikipedia API failures
+        }
 
+        // Return trip data with Wikipedia integration
         return $this->json([
-            'id'          => $trip->getId(),
-            'country'     => $trip->getCountry(),
-            'city'        => $trip->getCity(),
-            'startDate'   => $trip->getStartDate()->format('Y-m-d'),
-            'endDate'     => $trip->getEndDate()->format('Y-m-d'),
-            'description' => $wikiDesc,
-            'imageUrl'    => $wikiImageUrl,
+            'id' => $trip->getId(),
+            'country' => $trip->getCountry(),
+            'city' => $trip->getCity(),
+            'startDate' => $trip->getStartDate()->format('Y-m-d'),
+            'endDate' => $trip->getEndDate()->format('Y-m-d'),
+            'description' => $wikiDesc,  // Wikipedia description
+            'imageUrl' => $wikiImageUrl,  // Wikipedia image
         ], 200);
-
     }
 
+    /**
+     * Update trip dates
+     * 
+     * Updates the start and/or end dates of an existing trip. Only the trip owner
+     * can modify their trips. Accepts partial updates (only provided fields are updated).
+     * 
+     * @Route("/{id<\d+>}", name="update", methods={"PATCH"})
+     * @param int $id Trip ID to update
+     * @param Request $request HTTP request containing updated date fields
+     * @param EntityManagerInterface $em Entity manager for database operations
+     * @return JsonResponse Updated trip data or error if not found/invalid
+     */
     #[Route('/{id<\d+>}', name: 'update', methods: ['PATCH'])]
     public function updateTrip(
         int $id,
         Request $request,
         EntityManagerInterface $em
     ): JsonResponse {
+        // Find trip and verify ownership
         $trip = $this->tripRepo->find($id);
 
         if (!$trip || $trip->getUser() !== $this->getUser()) {
             return $this->json(['error' => 'Trip not found'], 404);
         }
 
+        // Parse JSON request data
         $data = json_decode($request->getContent(), true);
         if (!$data) {
             return $this->json(['error' => 'Invalid JSON format'], 400);
         }
 
+        // Update start date if provided
         if (isset($data['startDate'])) {
             $trip->setStartDate(new \DateTimeImmutable($data['startDate']));
         }
 
+        // Update end date if provided
         if (isset($data['endDate'])) {
             $trip->setEndDate(new \DateTimeImmutable($data['endDate']));
         }
 
+        // Save changes to database
         $em->flush();
 
+        // Return updated trip data
         return $this->json([
-            'id'        => $trip->getId(),
-            'country'   => $trip->getCountry(),
-            'city'      => $trip->getCity(),
+            'id' => $trip->getId(),
+            'country' => $trip->getCountry(),
+            'city' => $trip->getCity(),
             'startDate' => $trip->getStartDate()->format('Y-m-d'),
-            'endDate'   => $trip->getEndDate()->format('Y-m-d'),
+            'endDate' => $trip->getEndDate()->format('Y-m-d'),
         ]);
     }
 
