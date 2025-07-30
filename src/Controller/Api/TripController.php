@@ -308,24 +308,24 @@ class TripController extends AbstractController
     }
 
     /* --------------------------------------------------------------------- */
-    /*                     ≡   О Н О В Л Е Н Н Я   П О Г О Д И               */
+    /*                     ≡   Weather update              */
     /* --------------------------------------------------------------------- */
     #[Route('/{id}/weather/update', name: 'weather_update', methods: ['PATCH'])]
     public function updateWeather(int $id, EntityManagerInterface $em): JsonResponse
     {
-        // 1) Перевіряємо доступ до поїздки
+        // 1) Checking access to the trip
         $trip = $this->tripRepo->find($id);
         if (!$trip || $trip->getUser() !== $this->getUser()) {
             return $this->json(['error' => 'Trip not found'], 404);
         }
 
-        // 2) Геокодуємо місто через Nominatim
+        // 2) Geocoding the city via Nominatim
         $coord = $this->geocodeCity($trip->getCity(), $trip->getCountry());
         if (!$coord) {
             return $this->json(['error' => 'Could not determine coordinates'], 502);
         }
 
-        // 3) Запит до Open-Meteo (до 16 днів)
+        // 3) Request to Open-Meteo (up to 16 days)
         $resp = $this->http->request('GET', 'https://api.open-meteo.com/v1/forecast', [
             'query' => [
                 'latitude'      => $coord['lat'],
@@ -344,7 +344,7 @@ class TripController extends AbstractController
         $raw  = $resp->toArray()['daily'];
         $days = $this->mergeDailyArrays($raw);
 
-        // 4) Зберігаємо у Weather
+        // 4) Save to Weather
         $weather = $trip->getWeather() ?? (new Weather())->setTrip($trip);
         if (!$weather->getId()) {
             $trip->setWeather($weather);
@@ -395,7 +395,7 @@ class TripController extends AbstractController
         ], 200);
     }
     /* --------------------------------------------------------------------- */
-    /*                     ≡   О Т Р И М А Н Н Я   П О Г О Д И               */
+    /*                     ≡  get weather             */
     /* --------------------------------------------------------------------- */
     #[Route('/{id}/weather', name: 'weather', methods: ['GET'])]
     public function getWeather(int $id): JsonResponse
@@ -429,7 +429,7 @@ class TripController extends AbstractController
     }
 
     // ================================================
-    //             ВНУТРІШНІ МЕТОДИ
+    //            Inside helpers
     // ================================================
 
     private function geocodeCity(string $city, string $country): ?array

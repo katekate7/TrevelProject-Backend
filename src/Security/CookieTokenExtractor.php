@@ -16,7 +16,7 @@ class CookieTokenExtractor implements TokenExtractorInterface
 
     public function extract(Request $request): ?string
     {
-        dump('Extractor працює ✅');
+        dump('Extractor works ✅');
         dump($request->cookies->all());
         return $request->cookies->get($this->cookieName);    
     }
