@@ -35,6 +35,7 @@ namespace App\Controller\Api;
 
 use App\Entity\User;
 use App\Entity\PasswordResetRequest;
+use App\Security\SecurityService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -61,11 +62,13 @@ class UserController extends AbstractController
      * @param EntityManagerInterface $em Entity manager for database operations
      * @param UserPasswordHasherInterface $hasher Password hasher for secure password storage
      * @param MailerInterface $mailer Mailer service for email notifications
+     * @param SecurityService $securityService Security service for input validation and sanitization
      */
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly UserPasswordHasherInterface $hasher,
         private readonly MailerInterface $mailer,
+        private readonly SecurityService $securityService,
     ) {}
 
     /**
@@ -95,7 +98,8 @@ class UserController extends AbstractController
      * Register a new user account
      * 
      * Creates a new user account with provided credentials. Validates required fields,
-     * checks for email uniqueness, and securely hashes the password before storage.
+     * checks for email uniqueness, validates password strength, and securely hashes 
+     * the password before storage. Includes protection against SQL injection and XSS attacks.
      * 
      * @Route("/register", name="register", methods={"POST"})
      * @param Request $req HTTP request containing username, email, and password
@@ -106,22 +110,50 @@ class UserController extends AbstractController
     {
         // Parse and validate input data
         $data = json_decode($req->getContent(), true) ?: [];
+        
+        // Check for required fields
         if (empty($data['username']) || empty($data['email']) || empty($data['password'])) {
             return $this->json(['error' => 'Missing fields'], 400);
         }
         
-        // Check if email is already in use
-        if ($this->em->getRepository(User::class)->findOneBy(['email' => $data['email']])) {
+        // Sanitize input data to prevent XSS attacks
+        $username = $this->securityService->sanitizeInput($data['username']);
+        $email = $this->securityService->sanitizeInput($data['email']);
+        $password = $data['password']; // Don't sanitize password as it might contain special characters
+        
+        // Validate email format
+        if (!$this->securityService->validateEmail($email)) {
+            return $this->json(['error' => 'Invalid email format'], 400);
+        }
+        
+        // Validate username length and format
+        if (!$this->securityService->validateLength($username, 3, 50)) {
+            return $this->json(['error' => 'Username must be between 3 and 50 characters'], 400);
+        }
+        
+        // Validate password strength with detailed error messages
+        $passwordValidation = $this->securityService->validatePasswordWithMessage($password);
+        if (!$passwordValidation['valid']) {
+            return $this->json(['error' => $passwordValidation['message']], 400);
+        }
+        
+        // Check if email is already in use (using sanitized email)
+        if ($this->em->getRepository(User::class)->findOneBy(['email' => $email])) {
             return $this->json(['error' => 'Email in use'], 409);
         }
+        
+        // Check if username is already in use (using sanitized username)
+        if ($this->em->getRepository(User::class)->findOneBy(['username' => $username])) {
+            return $this->json(['error' => 'Username already taken'], 409);
+        }
 
-        // Create new user with hashed password
+        // Create new user with hashed password (using sanitized data)
         $user = (new User())
-            ->setUsername($data['username'])
-            ->setEmail($data['email'])
+            ->setUsername($username)
+            ->setEmail($email)
             ->setRole('user');
         $user->setPassword(
-            $this->hasher->hashPassword($user, $data['password'])
+            $this->hasher->hashPassword($user, $password)
         );
 
         // Persist user to database
@@ -189,8 +221,9 @@ class UserController extends AbstractController
     /**
      * Create admin user account (admin only)
      * 
-     * Creates a new user account with admin privileges. Requires admin authentication
-     * and validates input data before creating the account.
+     * Creates a new user account with admin privileges. Requires admin authentication,
+     * validates input data, checks password strength, and includes security protections
+     * against SQL injection and XSS attacks before creating the account.
      * 
      * @Route("/create-admin", name="create_admin", methods={"POST"})
      * @param Request $req HTTP request containing admin user data
@@ -208,18 +241,44 @@ class UserController extends AbstractController
             return $this->json(['error' => 'Missing fields'], 400);
         }
         
-        // Check if email is already in use
-        if ($this->em->getRepository(User::class)->findOneBy(['email' => $data['email']])) {
+        // Sanitize input data to prevent XSS attacks
+        $username = $this->securityService->sanitizeInput($data['username']);
+        $email = $this->securityService->sanitizeInput($data['email']);
+        $password = $data['password']; // Don't sanitize password as it might contain special characters
+        
+        // Validate email format
+        if (!$this->securityService->validateEmail($email)) {
+            return $this->json(['error' => 'Invalid email format'], 400);
+        }
+        
+        // Validate username length and format
+        if (!$this->securityService->validateLength($username, 3, 50)) {
+            return $this->json(['error' => 'Username must be between 3 and 50 characters'], 400);
+        }
+        
+        // Validate password strength with detailed error messages
+        $passwordValidation = $this->securityService->validatePasswordWithMessage($password);
+        if (!$passwordValidation['valid']) {
+            return $this->json(['error' => $passwordValidation['message']], 400);
+        }
+        
+        // Check if email is already in use (using sanitized email)
+        if ($this->em->getRepository(User::class)->findOneBy(['email' => $email])) {
             return $this->json(['error' => 'Email in use'], 409);
         }
+        
+        // Check if username is already in use (using sanitized username)
+        if ($this->em->getRepository(User::class)->findOneBy(['username' => $username])) {
+            return $this->json(['error' => 'Username already taken'], 409);
+        }
 
-        // Create new admin user with hashed password
+        // Create new admin user with hashed password (using sanitized data)
         $user = (new User())
-            ->setUsername($data['username'])
-            ->setEmail($data['email'])
+            ->setUsername($username)
+            ->setEmail($email)
             ->setRole('admin');
         $user->setPassword(
-            $this->hasher->hashPassword($user, $data['password'])
+            $this->hasher->hashPassword($user, $password)
         );
 
         // Persist admin user to database
@@ -455,7 +514,8 @@ class UserController extends AbstractController
      * Reset password using secure token
      * 
      * Completes the password reset process using a valid token from email.
-     * Validates the token, updates the password, and removes the used token.
+     * Validates the token, checks password strength, updates the password, 
+     * and removes the used token. Includes security protections.
      * 
      * @Route("/reset-password-token/{token}", name="reset_password_with_token", methods={"POST"})
      * @param string $token Password reset token from email
@@ -469,6 +529,12 @@ class UserController extends AbstractController
         $data = json_decode($req->getContent(), true) ?: [];
         if (empty($data['password'])) {
             return $this->json(['error' => 'Missing password'], 400);
+        }
+
+        // Validate password strength with detailed error messages
+        $passwordValidation = $this->securityService->validatePasswordWithMessage($data['password']);
+        if (!$passwordValidation['valid']) {
+            return $this->json(['error' => $passwordValidation['message']], 400);
         }
 
         // Find the password reset request using repository method

@@ -45,7 +45,7 @@ final class UserRegistrationIntegrationTest extends WebTestCase
         $userData = [
             'username' => 'testuser_' . uniqid(),
             'email' => 'test_' . uniqid() . '@example.com',
-            'password' => 'password123'
+            'password' => 'StrongPass123!'
         ];
 
         // Act: Send registration request
