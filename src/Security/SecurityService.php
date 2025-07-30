@@ -174,6 +174,70 @@ class SecurityService
     }
     
     /**
+     * Validate password strength with detailed error messages
+     * 
+     * @param string $password The password to validate
+     * @return array Array with 'valid' boolean and 'message' string
+     */
+    public function validatePasswordWithMessage(string $password): array
+    {
+        $errors = [];
+        
+        // Check minimum length (8 characters)
+        if (strlen($password) < 8) {
+            $errors[] = 'Password must be at least 8 characters long';
+        }
+        
+        // Check for at least one uppercase letter
+        if (!preg_match('/[A-Z]/', $password)) {
+            $errors[] = 'Password must contain at least one uppercase letter (A-Z)';
+        }
+        
+        // Check for at least one lowercase letter
+        if (!preg_match('/[a-z]/', $password)) {
+            $errors[] = 'Password must contain at least one lowercase letter (a-z)';
+        }
+        
+        // Check for at least one number
+        if (!preg_match('/\d/', $password)) {
+            $errors[] = 'Password must contain at least one number (0-9)';
+        }
+        
+        // Check for at least one special character
+        if (!preg_match('/[^A-Za-z0-9]/', $password)) {
+            $errors[] = 'Password must contain at least one special character (e.g., !, @, #, $, %, ., etc.)';
+        }
+        
+        // Check for common weak passwords
+        $commonPasswords = [
+            'password', 'password123', '123456', '123456789', 'qwerty', 
+            'abc123', 'password1', 'admin', 'letmein', 'welcome'
+        ];
+        
+        if (in_array(strtolower($password), $commonPasswords)) {
+            $errors[] = 'Password is too common. Please choose a more unique password';
+        }
+        
+        if (empty($errors)) {
+            return [
+                'valid' => true,
+                'message' => 'Password meets all security requirements'
+            ];
+        }
+        
+        return [
+            'valid' => false,
+            'message' => 'Your password should contain: ' . implode(', ', [
+                'minimum 8 characters',
+                '1 uppercase letter (A-Z)',
+                '1 lowercase letter (a-z)', 
+                '1 number (0-9)',
+                '1 special character (e.g., !, @, #, $, %, .)'
+            ]) . '. Issues found: ' . implode('; ', $errors)
+        ];
+    }
+    
+    /**
      * Validate date format (YYYY-MM-DD)
      */
     public function isValidDate(string $date): bool
