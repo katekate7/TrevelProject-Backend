@@ -1,7 +1,6 @@
 # config/services.yaml
 parameters:
-    # назва параметра — має співпасти з тим, що ви підставляєте в bind
-    weatherapi_key: '%env(WEATHERAPI_KEY)%'
+    # Parameters can be added here as needed
 
 services:
     _defaults:
@@ -9,9 +8,9 @@ services:
         autoconfigure: true
         public:        false
 
-        # Якщо у __construct() контролера є аргумент $weatherApiKey — він підставиться звідси
+        # Service bindings can be added here as needed
         bind:
-            string $weatherApiKey: '%weatherapi_key%'
+            # Add service bindings here if needed
 
     # всі контролери мають бути публічними і з тегом controller.service_arguments
     App\Controller\:
