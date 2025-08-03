@@ -6,7 +6,7 @@ pipeline {
     stages {
         stage("Continuous Integration / Intégration Continue") {
             steps {
-                git branch: "main", url: "https://github.com/katekate7/TrevelProject.git"
+                git branch: "main", url: "https://github.com/katekate7/TrevelProject-Backend.git"
                 sh "composer install"
             }
         }
