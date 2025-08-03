@@ -414,13 +414,23 @@ class TripController extends AbstractController
         $end   = $trip->getEndDate();
         $out   = [];
 
-        foreach ($weather->getForecast() as $day) {
-            $d = (new \DateTimeImmutable())->setTimestamp($day['dt']);
-            if (!$start || !$end || ($d >= $start && $d <= $end)) {
-                $out[] = $day;
+        // Only filter by dates if both start and end dates are available
+        if ($start && $end) {
+            foreach ($weather->getForecast() as $day) {
+                $d = (new \DateTimeImmutable())->setTimestamp($day['dt']);
+                // Convert to date-only strings for comparison to avoid time zone issues
+                $forecastDate = $d->format('Y-m-d');
+                $startDate = $start->format('Y-m-d');
+                $endDate = $end->format('Y-m-d');
+                
+                // Include days that fall within the trip date range (inclusive)
+                if ($forecastDate >= $startDate && $forecastDate <= $endDate) {
+                    $out[] = $day;
+                }
             }
         }
 
+        // If no dates are set or no days found in range, show all available forecast
         if (!$out) {
             $out = array_slice($weather->getForecast(), 0, 16);
         }
