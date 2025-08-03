@@ -67,8 +67,8 @@ class UserController extends AbstractController
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly UserPasswordHasherInterface $hasher,
-        private readonly MailerInterface $mailer,
         private readonly SecurityService $securityService,
+        private readonly ?MailerInterface $mailer = null,
     ) {}
 
     /**
@@ -213,7 +213,9 @@ class UserController extends AbstractController
                 'resetLink' => $resetLink,
             ]);
 
-        $this->mailer->send($email);
+        if ($this->mailer) {
+            $this->mailer->send($email);
+        }
 
         return $this->json(['message' => 'The letter with the link has been sent']);
     }
@@ -425,7 +427,9 @@ class UserController extends AbstractController
                 'resetLink' => $resetLink,
             ]);
 
-        $this->mailer->send($email);
+        if ($this->mailer) {
+            $this->mailer->send($email);
+        }
 
         return $this->json(['message' => 'The email with the link has been sent']);
     }
@@ -501,7 +505,9 @@ class UserController extends AbstractController
                 'isNewUser' => true,
             ]);
 
-        $this->mailer->send($email);
+        if ($this->mailer) {
+            $this->mailer->send($email);
+        }
 
         return $this->json([
             'id' => $u->getId(),
