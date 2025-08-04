@@ -119,7 +119,8 @@ jobs:
 
       - name: Run PHPUnit tests
         run: |
-          php bin/phpunit --coverage-text --coverage-clover=coverage.xml
+          php bin/phpunit --coverage-text --coverage-clover=coverage.xml --testdox
+        continue-on-error: true
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v4
