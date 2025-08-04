@@ -15,9 +15,6 @@ jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./Backend
     
     services:
       mysql:
@@ -43,7 +40,9 @@ jobs:
 
       - name: Get composer cache directory
         id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+        run: |
+          cd Backend
+          echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
 
       - name: Cache composer dependencies
         uses: actions/cache@v4
@@ -54,31 +53,38 @@ jobs:
 
       - name: Create base .env file
         run: |
+          cd Backend
           touch .env
           echo "APP_ENV=dev" > .env
           echo "APP_SECRET=dev_secret_key_for_ci" >> .env
           echo "DATABASE_URL=mysql://root:root@127.0.0.1:3306/travel_test" >> .env
 
       - name: Install Composer dependencies
-        run: composer install --no-progress --prefer-dist --optimize-autoloader --no-scripts
+        run: |
+          cd Backend
+          composer install --no-progress --prefer-dist --optimize-autoloader --no-scripts
 
       - name: Fix autoloader and run scripts
         run: |
+          cd Backend
           composer dump-autoload --optimize
           composer run-script auto-scripts || true
 
       - name: Create test environment file
         run: |
+          cd Backend
           cp .env.test .env.test.local
           echo "DATABASE_URL=mysql://root:root@127.0.0.1:3306/travel_test" >> .env.test.local
 
       - name: Run database migrations
         run: |
+          cd Backend
           php bin/console doctrine:database:create --env=test
           php bin/console doctrine:migrations:migrate --no-interaction --env=test
 
       - name: Load fixtures (if available)
         run: |
+          cd Backend
           if [ -f "src/DataFixtures" ]; then
             php bin/console doctrine:fixtures:load --no-interaction --env=test
           fi
@@ -86,6 +92,7 @@ jobs:
 
       - name: Run PHP_CodeSniffer
         run: |
+          cd Backend
           if composer show | grep -q "squizlabs/php_codesniffer"; then
             vendor/bin/phpcs src/ --standard=PSR12 --ignore=*/migrations/* || true
           fi
@@ -93,21 +100,19 @@ jobs:
 
       - name: Run PHPUnit tests
         run: |
+          cd Backend
           php bin/phpunit --coverage-text --coverage-clover=coverage.xml
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v4
         with:
-          file: ./coverage.xml
+          file: ./Backend/coverage.xml
           fail_ci_if_error: false
         continue-on-error: true
 
   security-check:
     name: Security Check
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./Backend
     
     steps:
       - name: Checkout code
@@ -121,17 +126,20 @@ jobs:
 
       - name: Create base .env file
         run: |
+          cd Backend
           touch .env
           echo "APP_ENV=prod" > .env
           echo "APP_SECRET=prod_secret_key_for_ci" >> .env
 
       - name: Install dependencies
         run: |
+          cd Backend
           composer install --no-dev --optimize-autoloader --no-scripts
           composer dump-autoload --optimize
 
       - name: Security check
         run: |
+          cd Backend
           composer audit || true
 
   build-and-deploy:
@@ -139,9 +147,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test, security-check]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    defaults:
-      run:
-        working-directory: ./Backend
 
     steps:
       - name: Checkout code
@@ -155,11 +160,13 @@ jobs:
 
       - name: Install production dependencies
         run: |
+          cd Backend
           composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev --no-scripts
           composer dump-autoload --optimize
 
       - name: Create production environment file
         run: |
+          cd Backend
           echo "APP_ENV=${{ secrets.APP_ENV }}" >> .env
           echo "APP_SECRET=${{ secrets.APP_SECRET }}" >> .env
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
@@ -170,6 +177,7 @@ jobs:
 
       - name: Prepare cache directories
         run: |
+          cd Backend
           mkdir -p var/cache var/log
           chmod -R 777 var/
 
