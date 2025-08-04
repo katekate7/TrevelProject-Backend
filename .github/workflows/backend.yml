@@ -65,6 +65,15 @@ jobs:
           rm -rf var/cache/dev/* var/cache/test/* || true
           composer run-script auto-scripts || true
 
+      - name: Fix case sensitivity issues
+        run: |
+          # Ensure Command directory exists with correct case
+          if [ ! -d "src/Command" ] && [ -d "src/command" ]; then
+            mv src/command src/Command
+          fi
+          # List directory contents for debugging
+          ls -la src/
+
       - name: Create test environment file
         run: |
           cp .env.test .env.test.local
@@ -75,6 +84,18 @@ jobs:
           rm -rf var/cache/* var/log/* || true
           mkdir -p var/cache var/log
           chmod -R 777 var/
+
+      - name: Generate JWT keys for testing
+        run: |
+          mkdir -p config/jwt
+          # Create dummy JWT keys for testing if they don't exist
+          if [ ! -f "config/jwt/private.pem" ]; then
+            openssl genpkey -algorithm RSA -out config/jwt/private.pem -pkcs8 -pass pass:test_passphrase
+          fi
+          if [ ! -f "config/jwt/public.pem" ]; then
+            openssl pkey -in config/jwt/private.pem -out config/jwt/public.pem -pubout -passin pass:test_passphrase
+          fi
+          chmod 644 config/jwt/*.pem
 
       - name: Run database migrations
         run: |
