@@ -90,10 +90,10 @@ jobs:
           mkdir -p config/jwt
           # Create dummy JWT keys for testing if they don't exist
           if [ ! -f "config/jwt/private.pem" ]; then
-            openssl genpkey -algorithm RSA -out config/jwt/private.pem -pkcs8 -pass pass:test_passphrase
+            openssl genrsa -out config/jwt/private.pem -passout pass:test_passphrase -aes256 2048
           fi
           if [ ! -f "config/jwt/public.pem" ]; then
-            openssl pkey -in config/jwt/private.pem -out config/jwt/public.pem -pubout -passin pass:test_passphrase
+            openssl rsa -in config/jwt/private.pem -pubout -out config/jwt/public.pem -passin pass:test_passphrase
           fi
           chmod 644 config/jwt/*.pem
 
