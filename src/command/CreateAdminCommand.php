@@ -1,108 +1,116 @@
 <?php
 /**
- * Command for creating the first admin user in the application.
- * This is typically used during initial application setup or deployment.
+ * Command for creating admin users via command line interface.
+ * This command provides a secure way to create administrative accounts
+ * without requiring web interface access.
  * 
- * Usage: php bin/console app:create-admin <username> <email> <password>
+ * Usage: php bin/console app:create-admin
  * 
  * @package App\Command
  * @author Travel Project Team
  */
 
-// src/Command/CreateAdminCommand.php
 namespace App\Command;
 
 use App\Entity\User;
+use App\Security\SecurityService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 #[AsCommand(
     name: 'app:create-admin',
-    description: 'Bootstrap first admin user',
+    description: 'Create a new admin user'
 )]
-/**
- * Console command to create an admin user for the travel application.
- * 
- * This command is essential for bootstrapping the application with an initial
- * admin user who can then manage the system and create other users/admins.
- * It includes validation to prevent duplicate admin accounts.
- */
 class CreateAdminCommand extends Command
 {
-    /**
-     * Constructor - Injects required services for user management.
-     *
-     * @param EntityManagerInterface $em - Doctrine entity manager for database operations
-     * @param UserPasswordHasherInterface $hasher - Service for securely hashing passwords
-     */
+    private EntityManagerInterface $entityManager;
+    private UserPasswordHasherInterface $passwordHasher;
+    private SecurityService $securityService;
+
     public function __construct(
-        private readonly EntityManagerInterface $em,
-        private readonly UserPasswordHasherInterface $hasher,
+        EntityManagerInterface $entityManager,
+        UserPasswordHasherInterface $passwordHasher,
+        SecurityService $securityService
     ) {
         parent::__construct();
+        $this->entityManager = $entityManager;
+        $this->passwordHasher = $passwordHasher;
+        $this->securityService = $securityService;
     }
 
-    /**
-     * Configure the command arguments.
-     * Defines what parameters the command accepts when executed.
-     */
     protected function configure(): void
     {
         $this
-            // Define command line arguments that must be provided
+            ->setDescription('Create a new admin user account')
             ->addArgument('username', InputArgument::REQUIRED, 'Admin username')
-            ->addArgument('email',    InputArgument::REQUIRED, 'Admin email')
-            ->addArgument('password', InputArgument::REQUIRED, 'Plain password');
+            ->addArgument('email', InputArgument::REQUIRED, 'Admin email address')
+            ->addArgument('password', InputArgument::REQUIRED, 'Admin password')
+            ->setHelp('This command allows you to create a new admin user account with the specified credentials.');
     }
 
-    /**
-     * Execute the command logic.
-     * 
-     * This method:
-     * 1. Extracts arguments from command line input
-     * 2. Validates that user doesn't already exist
-     * 3. Creates new admin user with hashed password
-     * 4. Persists user to database
-     *
-     * @param InputInterface $in - Command input interface
-     * @param OutputInterface $out - Command output interface
-     * @return int - Command::SUCCESS or Command::FAILURE
-     */
-    protected function execute(InputInterface $in, OutputInterface $out): int
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        // Extract command arguments
-        $username = $in->getArgument('username');
-        $email    = $in->getArgument('email');
-        $plainPwd = $in->getArgument('password');
+        $io = new SymfonyStyle($input, $output);
+        
+        $username = $input->getArgument('username');
+        $email = $input->getArgument('email');
+        $password = $input->getArgument('password');
 
-        // Check if user with this email already exists to prevent duplicates
-        if ($this->em->getRepository(User::class)->findOneBy(['email' => $email])) {
-            $out->writeln('<error>User with this e-mail already exists</error>');
+        // Validate input
+        if (!$this->securityService->validateEmail($email)) {
+            $io->error('Invalid email format.');
             return Command::FAILURE;
         }
 
-        // Create new User entity with admin role
-        $user = (new User())
-            ->setUsername($username)
-            ->setEmail($email)
-            ->setRole('admin');                // Important: specifically set as 'admin'
+        if (!$this->securityService->validateLength($username, 3, 50)) {
+            $io->error('Username must be between 3 and 50 characters.');
+            return Command::FAILURE;
+        }
 
-        // Hash the password securely before storing
-        $user->setPassword(
-            $this->hasher->hashPassword($user, $plainPwd)
-        );
+        $passwordValidation = $this->securityService->validatePasswordWithMessage($password);
+        if (!$passwordValidation['valid']) {
+            $io->error($passwordValidation['message']);
+            return Command::FAILURE;
+        }
 
-        // Persist the new admin user to database
-        $this->em->persist($user);
-        $this->em->flush();
+        // Check if user already exists
+        $existingUser = $this->entityManager->getRepository(User::class)->findOneBy(['email' => $email]);
+        if ($existingUser) {
+            $io->error('A user with this email already exists.');
+            return Command::FAILURE;
+        }
 
-        // Confirm successful creation
-        $out->writeln('<info>Admin created:</info> '.$user->getEmail());
-        return Command::SUCCESS;
+        $existingUsername = $this->entityManager->getRepository(User::class)->findOneBy(['username' => $username]);
+        if ($existingUsername) {
+            $io->error('A user with this username already exists.');
+            return Command::FAILURE;
+        }
+
+        try {
+            // Create admin user
+            $user = new User();
+            $user->setUsername($username);
+            $user->setEmail($email);
+            $user->setRole('admin');
+            
+            $hashedPassword = $this->passwordHasher->hashPassword($user, $password);
+            $user->setPassword($hashedPassword);
+
+            $this->entityManager->persist($user);
+            $this->entityManager->flush();
+
+            $io->success(sprintf('Admin user "%s" has been created successfully!', $username));
+            return Command::SUCCESS;
+
+        } catch (\Exception $e) {
+            $io->error('An error occurred while creating the admin user: ' . $e->getMessage());
+            return Command::FAILURE;
+        }
     }
 }
