@@ -1,5 +1,5 @@
 name: Backend CI/CD
-
+run: echo "Workflow запустився успішно"
 on:
   push:
     branches: [ "main" ]
