@@ -1,6 +1,7 @@
 monolog:
     channels:
         - deprecation # Deprecations are logged in the dedicated "deprecation" channel when it exists
+        - security    # Security events channel
 
 when@dev:
     monolog:
@@ -40,6 +41,14 @@ when@test:
 when@prod:
     monolog:
         handlers:
+            security:
+                type: rotating_file
+                path: "%kernel.logs_dir%/security.log"
+                level: info
+                channels: ["security"]
+                max_files: 10
+                formatter: monolog.formatter.json
+                
             main:
                 type: fingers_crossed
                 action_level: error

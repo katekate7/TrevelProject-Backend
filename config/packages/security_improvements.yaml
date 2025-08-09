@@ -1,0 +1,22 @@
+# config/packages/security_improvements.yaml
+parameters:
+    # Indicate if we're in a production environment
+    env(APP_ENV): 'dev'
+    
+framework:
+    # Enforces HTTPS in production (handled via .htaccess or web server config)
+    
+    router:
+        # Strict URL generation
+        strict_requirements: true
+        
+    # Session security improvements
+    session:
+        # Ensure cookies are secure in production
+        cookie_secure: '%env(bool:SECURE_COOKIES)%'
+        
+        # Set cookies to HTTP-only to prevent JS access
+        cookie_httponly: true
+        
+        # Prevent CSRF attacks (SameSite=Lax allows GET requests from external sites)
+        cookie_samesite: 'lax'

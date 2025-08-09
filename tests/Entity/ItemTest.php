@@ -7,8 +7,6 @@
  * - Importance flag handling
  * - Default value behavior
  * 
- * @package App\Tests\Entity
- * @author Travel Project Team
  */
 
 namespace App\Tests\Entity;

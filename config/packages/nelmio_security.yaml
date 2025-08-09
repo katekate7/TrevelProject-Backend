@@ -1,0 +1,48 @@
+nelmio_security:
+    # Content Security Policy configuration
+    content_type:
+        nosniff: true
+    
+    # XSS Protection header
+    xss_protection:
+        enabled: true
+        mode_block: true
+    
+    # Content Security Policy
+    csp:
+        enabled: true
+        hosts: []
+        content_types: []
+        enforce:
+            # Default restrictive policy
+            default-src:
+                - 'self'
+            script-src:
+                - 'self'
+                - 'unsafe-inline' # Needed for some frameworks
+                - 'unsafe-eval' # Needed for some frameworks
+            style-src:
+                - 'self'
+                - 'unsafe-inline' # Needed for styling
+            img-src:
+                - 'self'
+                - 'data:' # For inline images
+    
+    # Force HTTPS for all pages
+    forced_ssl:
+        enabled: true
+        hsts_max_age: 31536000 # 1 year
+        hsts_subdomains: true
+        hsts_preload: true
+        
+    # Frame options (clickjacking protection)
+    referrer_policy:
+        enabled: true
+        policies:
+            - 'no-referrer'
+            - 'strict-origin-when-cross-origin'
+            
+    # Frame options (clickjacking protection)
+    clickjacking:
+        paths:
+            '^/.*': DENY

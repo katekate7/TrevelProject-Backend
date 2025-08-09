@@ -1,0 +1,19 @@
+framework:
+    rate_limiter:
+        # Login rate limiting - 5 attempts per minute
+        login:
+            policy: 'token_bucket'
+            limit: 5
+            rate: { interval: '1 minute', amount: 5 }
+
+        # API rate limiting - 60 requests per minute by IP
+        api:
+            policy: 'sliding_window'
+            limit: 60
+            rate: { interval: '1 minute', amount: 60 }
+
+        # Protected endpoints - 30 requests per minute by IP
+        protected_api:
+            policy: 'sliding_window'
+            limit: 30
+            rate: { interval: '1 minute', amount: 30 }

@@ -1,0 +1,38 @@
+services:
+    # Rate limiter factories
+    app.login_limiter:
+        class: Symfony\Component\RateLimiter\RateLimiterFactory
+        arguments:
+            $config:
+                policy: 'token_bucket'
+                limit: 5
+                rate: { interval: '1 minute', amount: 5 }
+    
+    app.api_limiter:
+        class: Symfony\Component\RateLimiter\RateLimiterFactory
+        arguments:
+            $config:
+                policy: 'sliding_window'
+                limit: 60
+                rate: { interval: '1 minute', amount: 60 }
+    
+    app.protected_api_limiter:
+        class: Symfony\Component\RateLimiter\RateLimiterFactory
+        arguments:
+            $config:
+                policy: 'sliding_window'
+                limit: 30
+                rate: { interval: '1 minute', amount: 30 }
+
+    # Security audit logger
+    app.security_audit_logger:
+        class: App\Security\SecurityAuditLogger
+        arguments:
+            $securityLogger: '@monolog.logger.security'
+            
+    # Rate limit service
+    App\Security\RateLimitService:
+        arguments:
+            $loginLimiter: '@app.login_limiter'
+            $apiLimiter: '@app.api_limiter'
+            $protectedApiLimiter: '@app.protected_api_limiter'
