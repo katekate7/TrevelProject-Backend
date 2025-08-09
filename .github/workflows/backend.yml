@@ -78,6 +78,7 @@ jobs:
         run: |
           cp .env.test .env.test.local
           echo "DATABASE_URL=mysql://root:root@127.0.0.1:3306/travel_test" >> .env.test.local
+          echo "LOCK_DSN=flock" >> .env.test.local
 
       - name: Clear Symfony cache
         run: |
@@ -107,7 +108,8 @@ jobs:
             echo "Migrations failed, creating schema from entities"
             php bin/console doctrine:database:drop --force --env=test
             php bin/console doctrine:database:create --env=test
-            php bin/console doctrine:schema:create --env=test
+            # Add the LOCK_DSN variable explicitly for this command
+            LOCK_DSN=flock php bin/console doctrine:schema:create --env=test
           fi
 
       - name: Load fixtures (if available)
