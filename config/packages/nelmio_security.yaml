@@ -30,10 +30,11 @@ nelmio_security:
     
     # Force HTTPS for all pages
     forced_ssl:
-        enabled: true
-        hsts_max_age: 31536000 # 1 year
-        hsts_subdomains: true
-        hsts_preload: true
+        enabled: false
+        # hsts_max_age: 31536000 # 1 year
+        hsts_max_age: 0
+        # hsts_subdomains: true
+        # hsts_preload: true
         
     # Frame options (clickjacking protection)
     referrer_policy:
