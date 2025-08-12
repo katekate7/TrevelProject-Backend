@@ -1,21 +1,34 @@
 #!/usr/bin/env php
 <?php
+/**
+ * Symfony Console Application Entry Point
+ * 
+ * This file serves as the entry point for the Symfony console application.
+ * It bootstraps the Symfony kernel and returns an Application instance.
+ */
 
+// Import the necessary classes
 use App\Kernel;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 
+// Check if dependencies are installed
 if (!is_dir(dirname(__DIR__).'/vendor')) {
     throw new LogicException('Dependencies are missing. Try running "composer install".');
 }
 
+// Check if Symfony Runtime is available
 if (!is_file(dirname(__DIR__).'/vendor/autoload_runtime.php')) {
     throw new LogicException('Symfony Runtime is missing. Try running "composer require symfony/runtime".');
 }
 
+// Load the autoloader to make all classes available
 require_once dirname(__DIR__).'/vendor/autoload_runtime.php';
 
+// Return the runtime callable function that creates the console application
 return function (array $context) {
+    // Create a new Kernel with the environment and debug settings from context
     $kernel = new Kernel($context['APP_ENV'], (bool) $context['APP_DEBUG']);
 
+    // Return the console application with the initialized kernel
     return new Application($kernel);
 };

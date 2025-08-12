@@ -1,27 +1,34 @@
 # config/services.yaml
+# This file configures the Symfony service container for dependency injection
+
+# Global application parameters
 parameters:
     # Parameters can be added here as needed
+    # Examples: database connection settings, feature flags, paths, etc.
 
+# Service configuration section
 services:
+    # Default configuration for services in the app
     _defaults:
-        autowire:      true
-        autoconfigure: true
-        public:        false
+        autowire:      true   # Automatically injects dependencies in your services
+        autoconfigure: true   # Automatically registers your services as commands, event subscribers, etc.
+        public:        false  # Makes services private by default for better optimization
 
         # Service bindings can be added here as needed
         bind:
             # Add service bindings here if needed
+            # Example: $apiKey: '%env(API_KEY)%'
 
-    # всі контролери мають бути публічними і з тегом controller.service_arguments
+    # All controllers must be public and tagged with controller.service_arguments
     App\Controller\:
-        resource: '../src/Controller'
-        tags: ['controller.service_arguments']
-        public: true
+        resource: '../src/Controller'   # Loads all classes from the Controller directory
+        tags: ['controller.service_arguments']  # Enables controller argument resolution
+        public: true  # Controllers must be public to be accessible
 
-    # Решта ваших автосервісів
+    # Auto-configure all other services from the src/ directory
     App\:
-        resource: '../src/'
-        exclude:
-            - '../src/DependencyInjection/'
-            - '../src/Entity/'
-            - '../src/Kernel.php'
+        resource: '../src/'  # Registers all classes in src/ as services
+        exclude:  # Excludes these directories/files from auto-registration
+            - '../src/DependencyInjection/'  # Custom container extensions
+            - '../src/Entity/'  # Database entities shouldn't be services
+            - '../src/Kernel.php'  # Kernel is registered separately

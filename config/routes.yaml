@@ -1,8 +1,14 @@
+# Main route configuration file
+# Defines how URLs map to controllers in the application
+
+# Auto-load all controllers with attribute routing
 controllers:
     resource:
-        path: ../src/Controller/
-        namespace: App\Controller
-    type: attribute
+        path: ../src/Controller/     # Directory containing controller classes
+        namespace: App\Controller     # PHP namespace for controllers
+    type: attribute                   # Uses PHP 8 attributes for route definitions
+
+# Login endpoint definition
 api_login:
-    path: /api/login
-    methods: [POST]
+    path: /api/login                  # URL path for the login endpoint
+    methods: [POST]                   # Only allow POST requests to this endpoint

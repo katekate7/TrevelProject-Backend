@@ -1,23 +1,35 @@
 #!/usr/bin/env php
 <?php
+/**
+ * PHPUnit Runner Script
+ * 
+ * This script serves as the entry point for running PHPUnit tests.
+ * It checks for the existence of PHPUnit and falls back to Symfony's PHPUnit bridge if necessary.
+ */
 
+// Set default timezone to UTC if not configured
 if (!ini_get('date.timezone')) {
     ini_set('date.timezone', 'UTC');
 }
 
+// Check if standard PHPUnit is installed directly
 if (is_file(dirname(__DIR__).'/vendor/phpunit/phpunit/phpunit')) {
     if (PHP_VERSION_ID >= 80000) {
+        // For PHP 8.0+, use the standard PHPUnit runner
         require dirname(__DIR__).'/vendor/phpunit/phpunit/phpunit';
     } else {
+        // For PHP < 8.0, we need to set up the autoloader and invoke the command manually
         define('PHPUNIT_COMPOSER_INSTALL', dirname(__DIR__).'/vendor/autoload.php');
         require PHPUNIT_COMPOSER_INSTALL;
         PHPUnit\TextUI\Command::main();
     }
 } else {
+    // Fall back to Symfony's PHPUnit bridge
     if (!is_file(dirname(__DIR__).'/vendor/symfony/phpunit-bridge/bin/simple-phpunit.php')) {
         echo "Unable to find the `simple-phpunit.php` script in `vendor/symfony/phpunit-bridge/bin/`.\n";
         exit(1);
     }
 
+    // Use Symfony's PHPUnit bridge as a fallback
     require dirname(__DIR__).'/vendor/symfony/phpunit-bridge/bin/simple-phpunit.php';
 }

@@ -11,7 +11,6 @@
  * - City search using OpenStreetMap Nominatim API
  * - Query parameter validation and sanitization
  * - Structured response with city, country information
- * - Rate limiting and proper HTTP headers
  * - Error handling for external API calls
  * 
  * API Endpoints:

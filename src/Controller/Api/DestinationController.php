@@ -28,8 +28,8 @@ namespace App\Controller\Api;
 
 use App\Entity\Destination;
 use App\Repository\DestinationRepository;
-use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Doctrine\ORM\EntityManagerInterface; //save in bd
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController; //basic controller symfony with usful methods
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
