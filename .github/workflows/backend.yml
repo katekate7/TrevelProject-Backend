@@ -1,239 +1,246 @@
 name: Backend CI/CD
 
+# Defines when this workflow will run
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: [ "main", "develop" ]  # Run when code is pushed to main or develop branches
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main" ]  # Run when a pull request targets the main branch
 
+# Environment variables used throughout the workflow
 env:
-  PHP_VERSION: '8.2'
-  REGISTRY: docker.io
-  IMAGE_NAME: travel-backend
+  PHP_VERSION: '8.2'  # PHP version for the application
+  REGISTRY: docker.io  # Docker registry for image storage
+  IMAGE_NAME: travel-backend  # Name of the Docker image
 
 jobs:
+  # Test job to run PHPUnit tests
   test:
     name: Run Tests
     runs-on: ubuntu-latest
     
+    # Set up services needed for testing
     services:
       mysql:
-        image: mysql:8.0
+        image: mysql:8.0  # MySQL database service for tests
         env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: travel_test
+          MYSQL_ROOT_PASSWORD: root  # Database root password
+          MYSQL_DATABASE: travel_test  # Test database name
         ports:
-          - 3306:3306
-        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+          - 3306:3306  # Map MySQL port to host
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3  # Health check to ensure MySQL is ready
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4  # Clone repository code
 
       - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@v2  # Set up PHP environment
         with:
-          php-version: ${{ env.PHP_VERSION }}
-          extensions: mbstring, xml, ctype, iconv, intl, pdo, pdo_mysql, dom, filter, gd, json, zip
-          coverage: xdebug
-          tools: composer:v2
+          php-version: ${{ env.PHP_VERSION }}  # Use PHP version from environment variables
+          extensions: mbstring, xml, ctype, iconv, intl, pdo, pdo_mysql, dom, filter, gd, json, zip  # PHP extensions needed
+          coverage: xdebug  # Enable Xdebug for code coverage
+          tools: composer:v2  # Install Composer version 2
 
       - name: Create base .env file
         run: |
-          touch .env
-          echo "APP_ENV=dev" > .env
-          echo "APP_SECRET=dev_secret_key_for_ci" >> .env
-          echo "DATABASE_URL=mysql://root:root@127.0.0.1:3306/travel_test" >> .env
+          touch .env  # Create environment file
+          echo "APP_ENV=dev" > .env  # Set environment to development
+          echo "APP_SECRET=dev_secret_key_for_ci" >> .env  # Set dummy secret key for testing
+          echo "DATABASE_URL=mysql://root:root@127.0.0.1:3306/travel_test" >> .env  # Configure database connection
 
       - name: Get composer cache directory
         id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT  # Get Composer cache path
 
       - name: Cache composer dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v4  # Use GitHub's cache action
         with:
-          path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
-          restore-keys: ${{ runner.os }}-composer-
+          path: ${{ steps.composer-cache.outputs.dir }}  # Cache location
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}  # Cache key based on composer.lock
+          restore-keys: ${{ runner.os }}-composer-  # Fallback cache key
 
       - name: Install Composer dependencies
-        run: composer install --no-progress --prefer-dist --optimize-autoloader --no-scripts
+        run: composer install --no-progress --prefer-dist --optimize-autoloader --no-scripts  # Install PHP dependencies
 
       - name: Fix autoloader and run scripts
         run: |
-          composer dump-autoload --optimize --classmap-authoritative
-          rm -rf var/cache/dev/* var/cache/test/* || true
-          composer run-script auto-scripts || true
+          composer dump-autoload --optimize --classmap-authoritative  # Optimize the autoloader
+          rm -rf var/cache/dev/* var/cache/test/* || true  # Clear cache directories
+          composer run-script auto-scripts || true  # Run Symfony auto-scripts
 
       - name: Fix case sensitivity issues
         run: |
           # Ensure Command directory exists with correct case
           if [ ! -d "src/Command" ] && [ -d "src/command" ]; then
-            mv src/command src/Command
+            mv src/command src/Command  # Fix directory case sensitivity (important for Linux systems)
           fi
           # List directory contents for debugging
-          ls -la src/
+          ls -la src/  # Display directory structure for debugging
 
       - name: Create test environment file
         run: |
-          cp .env.test .env.test.local
-          echo "DATABASE_URL=mysql://root:root@127.0.0.1:3306/travel_test" >> .env.test.local
-          echo "LOCK_DSN=flock" >> .env.test.local
+          cp .env.test .env.test.local  # Create local test config from template
+          echo "DATABASE_URL=mysql://root:root@127.0.0.1:3306/travel_test" >> .env.test.local  # Set test database URL
+          echo "LOCK_DSN=flock" >> .env.test.local  # Set file locking mechanism for tests
 
       - name: Clear Symfony cache
         run: |
-          rm -rf var/cache/* var/log/* || true
-          mkdir -p var/cache var/log
-          chmod -R 777 var/
+          rm -rf var/cache/* var/log/* || true  # Remove old cache files
+          mkdir -p var/cache var/log  # Ensure directories exist
+          chmod -R 777 var/  # Set permissions for cache directory
 
       - name: Generate JWT keys for testing
         run: |
-          mkdir -p config/jwt
+          mkdir -p config/jwt  # Create directory for JWT keys
           # Create dummy JWT keys for testing if they don't exist
           if [ ! -f "config/jwt/private.pem" ]; then
-            openssl genrsa -out config/jwt/private.pem -passout pass:test_passphrase -aes256 2048
+            openssl genrsa -out config/jwt/private.pem -passout pass:test_passphrase -aes256 2048  # Generate private key
           fi
           if [ ! -f "config/jwt/public.pem" ]; then
-            openssl rsa -in config/jwt/private.pem -pubout -out config/jwt/public.pem -passin pass:test_passphrase
+            openssl rsa -in config/jwt/private.pem -pubout -out config/jwt/public.pem -passin pass:test_passphrase  # Generate public key
           fi
-          chmod 644 config/jwt/*.pem
+          chmod 644 config/jwt/*.pem  # Set proper permissions for JWT keys
 
       - name: Run database migrations
         run: |
-          php bin/console doctrine:database:create --env=test
+          php bin/console doctrine:database:create --env=test  # Create the test database
           # First try to run migrations, if they fail, create schema directly
           if php bin/console doctrine:migrations:migrate --no-interaction --env=test 2>/dev/null; then
-            echo "Migrations completed successfully"
+            echo "Migrations completed successfully"  # Migrations worked properly
           else
-            echo "Migrations failed, creating schema from entities"
-            php bin/console doctrine:database:drop --force --env=test
-            php bin/console doctrine:database:create --env=test
+            echo "Migrations failed, creating schema from entities"  # Fallback method
+            php bin/console doctrine:database:drop --force --env=test  # Drop the database
+            php bin/console doctrine:database:create --env=test  # Recreate the database
             # Add the LOCK_DSN variable explicitly for this command
-            LOCK_DSN=flock php bin/console doctrine:schema:create --env=test
+            LOCK_DSN=flock php bin/console doctrine:schema:create --env=test  # Create schema directly from entities
           fi
 
       - name: Load fixtures (if available)
         run: |
           if [ -d "src/DataFixtures" ]; then
-            php bin/console doctrine:fixtures:load --no-interaction --env=test
+            php bin/console doctrine:fixtures:load --no-interaction --env=test  # Load test data if fixtures exist
           fi
-        continue-on-error: true
+        continue-on-error: true  # Continue workflow even if fixtures fail
 
       - name: Run PHPUnit tests
         run: |
-          php bin/phpunit --coverage-text --coverage-clover=coverage.xml --testdox || true
-        continue-on-error: true
+          php bin/phpunit --coverage-text --coverage-clover=coverage.xml --testdox || true  # Run tests with coverage reporting
+        continue-on-error: true  # Continue workflow even if tests fail
 
       - name: Upload coverage reports
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v4  # Use Codecov service to track code coverage
         with:
-          file: ./coverage.xml
-          fail_ci_if_error: false
-        continue-on-error: true
+          file: ./coverage.xml  # Path to coverage report file
+          fail_ci_if_error: false  # Don't fail if Codecov upload fails
+        continue-on-error: true  # Continue workflow even if this step fails
 
+  # Job to check code for security vulnerabilities
   security-check:
     name: Security Check
     runs-on: ubuntu-latest
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4  # Clone repository code
 
       - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@v2  # Set up PHP environment
         with:
-          php-version: ${{ env.PHP_VERSION }}
-          tools: composer:v2
+          php-version: ${{ env.PHP_VERSION }}  # Use PHP version from environment variables
+          tools: composer:v2  # Install Composer version 2
 
       - name: Create base .env file
         run: |
-          touch .env
-          echo "APP_ENV=prod" > .env
-          echo "APP_SECRET=prod_secret_key_for_ci" >> .env
+          touch .env  # Create environment file
+          echo "APP_ENV=prod" > .env  # Set to production environment
+          echo "APP_SECRET=prod_secret_key_for_ci" >> .env  # Set a secret key for the CI process
 
       - name: Install dependencies
         run: |
-          composer install --no-dev --optimize-autoloader --no-scripts
-          composer dump-autoload --optimize --classmap-authoritative
+          composer install --no-dev --optimize-autoloader --no-scripts  # Install only production dependencies
+          composer dump-autoload --optimize --classmap-authoritative  # Optimize the autoloader
 
       - name: Security check
         run: |
-          composer audit || true
+          composer audit || true  # Check dependencies for known security vulnerabilities
 
+  # Job to build Docker image and deploy the application
   build-and-deploy:
     name: Build and Deploy
     runs-on: ubuntu-latest
-    needs: [test, security-check]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [test, security-check]  # Only run after test and security-check jobs complete
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'  # Only run on pushes to main branch
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4  # Clone repository code
 
       - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@v2  # Set up PHP environment
         with:
-          php-version: ${{ env.PHP_VERSION }}
-          tools: composer:v2
+          php-version: ${{ env.PHP_VERSION }}  # Use PHP version from environment variables
+          tools: composer:v2  # Install Composer version 2
 
       - name: Create production environment file
         run: |
-          touch .env
-          echo "APP_ENV=${{ secrets.APP_ENV }}" >> .env
-          echo "APP_SECRET=${{ secrets.APP_SECRET }}" >> .env
-          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
-          echo "JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}" >> .env
-          echo "JWT_PUBLIC_KEY=${{ secrets.JWT_PUBLIC_KEY }}" >> .env
-          echo "JWT_PASSPHRASE=${{ secrets.JWT_PASSPHRASE }}" >> .env
-          echo "CORS_ALLOW_ORIGIN=${{ secrets.CORS_ALLOW_ORIGIN }}" >> .env
+          touch .env  # Create environment file
+          echo "APP_ENV=${{ secrets.APP_ENV }}" >> .env  # Set environment from GitHub secrets
+          echo "APP_SECRET=${{ secrets.APP_SECRET }}" >> .env  # Set application secret key
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env  # Set production database URL
+          echo "JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}" >> .env  # Set JWT private key
+          echo "JWT_PUBLIC_KEY=${{ secrets.JWT_PUBLIC_KEY }}" >> .env  # Set JWT public key
+          echo "JWT_PASSPHRASE=${{ secrets.JWT_PASSPHRASE }}" >> .env  # Set JWT key passphrase
+          echo "CORS_ALLOW_ORIGIN=${{ secrets.CORS_ALLOW_ORIGIN }}" >> .env  # Set CORS configuration
 
       - name: Install production dependencies
         run: |
-          composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev --no-scripts
-          composer dump-autoload --optimize --classmap-authoritative
+          composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev --no-scripts  # Install only production dependencies
+          composer dump-autoload --optimize --classmap-authoritative  # Optimize the autoloader for production
 
       - name: Prepare cache directories
         run: |
-          mkdir -p var/cache var/log
-          chmod -R 777 var/
+          mkdir -p var/cache var/log  # Create cache and log directories
+          chmod -R 777 var/  # Set write permissions for web server
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v3  # Set up Docker buildx for multi-platform builds
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v3  # Authenticate with Docker Hub
         with:
-          username: kate0079887
-          password: ${{ secrets.KATE0079887 }}
-        continue-on-error: true
+          username: kate0079887  # Docker Hub username
+          password: ${{ secrets.KATE0079887 }}  # Docker Hub password from GitHub secrets
+        continue-on-error: true  # Continue even if Docker login fails
 
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v5  # Extract metadata for Docker image
         with:
-          images: kate0079887/${{ env.IMAGE_NAME }}
+          images: kate0079887/${{ env.IMAGE_NAME }}  # Set image name
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest,enable={{is_default_branch}}
-        continue-on-error: true
+            type=ref,event=branch  # Tag with branch name
+            type=ref,event=pr  # Tag with PR number
+            type=sha,prefix={{branch}}-  # Tag with commit SHA
+            type=raw,value=latest,enable={{is_default_branch}}  # Tag as latest for main branch
+        continue-on-error: true  # Continue even if metadata extraction fails
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v5  # Build and push Docker image
         with:
-          context: .
-          file: ./Dockerfile
-          push: ${{ secrets.KATE0079887 != '' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-        continue-on-error: true
+          context: .  # Use current directory as build context
+          file: ./Dockerfile  # Path to Dockerfile
+          push: ${{ secrets.KATE0079887 != '' }}  # Push only if Docker Hub credentials are available
+          tags: ${{ steps.meta.outputs.tags }}  # Use tags from metadata action
+          labels: ${{ steps.meta.outputs.labels }}  # Use labels from metadata action
+          cache-from: type=gha  # Use GitHub Actions cache for builds
+          cache-to: type=gha,mode=max  # Store cache for future builds
+        continue-on-error: true  # Continue even if build fails
 
       - name: Deploy to production (optional)
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main'  # Only execute on main branch
         run: |
           echo "Add your deployment script here"
           # Example: SSH to server and pull new image
           # ssh user@server "docker pull ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest && docker-compose up -d"
+          # This step is a placeholder for actual deployment commands

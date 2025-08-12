@@ -1,44 +1,49 @@
 # config/packages/security.yaml
 security:
+    # Configure password hashing algorithm - 'auto' selects the best available algorithm
     password_hashers:
         App\Entity\User:
             algorithm: auto
 
+    # Define how users are loaded from the database
     providers:
         app_user_provider:
             entity:
                 class: App\Entity\User
-                property: email
+                property: email  # Email is used as the identifier
 
     firewalls:
-        # 1) Реєстрація — без жодної авто­ри­зації
+        # 1) Registration endpoint - no authorization required
         register:
             pattern:   ^/api/users/register$
-            stateless: true
-            security:  false
+            stateless: true  # No session state is maintained
+            security:  false # Security checks are disabled for this endpoint
 
-        # 2) Логін — через JSON Login
+        # 2) Login endpoint - uses JSON Login authentication
         login:
             pattern:   ^/api/login$
-            stateless: true
+            stateless: true  # No session state is maintained
             json_login:
-                check_path:      /api/login
-                username_path:   email
-                password_path:   password
-                success_handler: App\Security\CustomAuthenticationSuccessHandler
-                failure_handler: lexik_jwt_authentication.handler.authentication_failure
+                check_path:      /api/login  # Path for authentication processing
+                username_path:   email       # Field name for username in JSON
+                password_path:   password    # Field name for password in JSON
+                success_handler: App\Security\CustomAuthenticationSuccessHandler  # Custom JWT token generation
+                failure_handler: lexik_jwt_authentication.handler.authentication_failure  # Error handling
 
-        # 3) Весь інший API — за JWT
+        # 3) All other API endpoints - secured with JWT authentication
         api:
             pattern:   ^/api
-            stateless: true
-            lazy:      true
-            jwt:       ~
+            stateless: true  # No session state is maintained (REST principle)
+            lazy:      true  # Authentication is performed only when needed
+            jwt:       ~     # Use JWT token authentication
 
+    # Access control lists - define which roles are required to access specific URL patterns
     access_control:
-        - { path: ^/api/users/register$, roles: PUBLIC_ACCESS }
-        - { path: ^/api/users/forgot-password$, roles: PUBLIC_ACCESS }
-        - { path: ^/api/users/reset-password-token/, roles: PUBLIC_ACCESS }
-        - { path: ^/api/login$,            roles: PUBLIC_ACCESS }
-        - { path: ^/api/cities$,           roles: PUBLIC_ACCESS }
+        # Public endpoints - accessible without authentication
+        - { path: ^/api/users/register$, roles: PUBLIC_ACCESS }          # User registration
+        - { path: ^/api/users/forgot-password$, roles: PUBLIC_ACCESS }   # Password reset request
+        - { path: ^/api/users/reset-password-token/, roles: PUBLIC_ACCESS } # Password reset with token
+        - { path: ^/api/login$,            roles: PUBLIC_ACCESS }        # Login endpoint
+        - { path: ^/api/cities$,           roles: PUBLIC_ACCESS }        # Public cities data
+        # All other API endpoints require full authentication
         - { path: ^/api,                   roles: IS_AUTHENTICATED_FULLY }

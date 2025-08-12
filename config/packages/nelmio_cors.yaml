@@ -1,14 +1,38 @@
+# CORS (Cross-Origin Resource Sharing) configuration
+# This file configures which domains can access the API and how they can interact with it
 nelmio_cors:
+    # Default CORS settings applied to all routes unless overridden
     defaults:
+        # List of origins (domains) allowed to access the API
+        # Currently configured for local development environments on different ports
         allow_origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175', 'http://localhost:5176', 'http://localhost:5177', 'http://localhost:5178']
+        
+        # HTTP methods that external domains are allowed to use
         allow_methods: ['GET', 'POST', 'OPTIONS', 'DELETE', 'PUT', 'PATCH']
+        
+        # HTTP headers that are allowed in requests from external domains
         allow_headers: ['Content-Type', 'Authorization']
+        
+        # Headers that browsers are allowed to access from responses
         expose_headers: ['Link']
+        
+        # How long browsers should cache the CORS response (in seconds)
         max_age: 3600
+        
+        # Whether to send cookies with cross-origin requests
         allow_credentials: true
+    # Path-specific configurations that override the defaults
     paths:
+        # Configuration specifically for API endpoints
         '^/api/':
+            # Same origins allowed for API endpoints
             allow_origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175', 'http://localhost:5176', 'http://localhost:5177', 'http://localhost:5178']
+            
+            # HTTP methods allowed for API endpoints
             allow_methods: ['GET', 'POST', 'OPTIONS', 'DELETE', 'PUT', 'PATCH']
+            
+            # Headers allowed for API requests
             allow_headers: ['Content-Type', 'Authorization']
+            
+            # Allow credentials (cookies, HTTP authentication) for API requests
             allow_credentials: true
